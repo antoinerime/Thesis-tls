@@ -199,6 +199,8 @@ static int handle_connection(int sockfd, ptls_context_t *ctx, const char *server
                         fprintf(stderr, "ptls_send(1rtt):%d\n", ret);
                         goto Exit;
                     }
+                    char * hello = "Hello World !\0";
+                    ptls_send_hello_world(tls, &encbuf, hello, strlen(hello) + 1);
                     ptbuf.off = 0;
                 }
             } else {

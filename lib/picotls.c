@@ -45,6 +45,7 @@
 #define PTLS_CONTENT_TYPE_ALERT 21
 #define PTLS_CONTENT_TYPE_HANDSHAKE 22
 #define PTLS_CONTENT_TYPE_APPDATA 23
+#define PTLS_CONTENT_TYPE_HELLO_WORLD 42
 
 #define PTLS_PSK_KE_MODE_PSK 0
 #define PTLS_PSK_KE_MODE_PSK_DHE 1
@@ -4051,7 +4052,7 @@ static int parse_record_header(struct st_ptls_record_t *rec, const uint8_t *src)
     rec->length = ntoh16(src + 3);
 
     if (rec->length >
-        (size_t)(rec->type == PTLS_CONTENT_TYPE_APPDATA ? PTLS_MAX_ENCRYPTED_RECORD_SIZE : PTLS_MAX_PLAINTEXT_RECORD_SIZE))
+        (size_t)(rec->type == (PTLS_CONTENT_TYPE_APPDATA) ? PTLS_MAX_ENCRYPTED_RECORD_SIZE : PTLS_MAX_PLAINTEXT_RECORD_SIZE))
         return PTLS_ALERT_DECODE_ERROR;
 
     return 0;
@@ -4409,6 +4410,15 @@ static int handle_handshake_message(ptls_t *tls, ptls_message_emitter_t *emitter
     return ret;
 }
 
+static int handle_hello_world(ptls_t *tls, const uint8_t *src, size_t len)
+{
+    char * out = malloc(sizeof(char) * len);
+    strncpy(out, (char *) src, len);
+    fprintf(stdout, "%s\n", out);
+    free(out);
+    return 0;
+}
+
 static int handle_alert(ptls_t *tls, const uint8_t *src, size_t len)
 {
     if (len != 2)
@@ -4550,6 +4560,14 @@ static int handle_input(ptls_t *tls, ptls_message_emitter_t *emitter, ptls_buffe
             break;
         case PTLS_CONTENT_TYPE_ALERT:
             ret = handle_alert(tls, rec.fragment, rec.length);
+            break;
+        case PTLS_CONTENT_TYPE_HELLO_WORLD:
+            if (tls->state >= PTLS_STATE_POST_HANDSHAKE_MIN) {
+                ret = handle_hello_world(tls, rec.fragment, rec.length);
+            } else {
+                ret = PTLS_ALERT_UNEXPECTED_MESSAGE;
+            }
+
             break;
         default:
             ret = PTLS_ALERT_UNEXPECTED_MESSAGE;
@@ -4735,6 +4753,23 @@ int ptls_send_alert(ptls_t *tls, ptls_buffer_t *sendbuf, uint8_t level, uint8_t 
         if ((ret = buffer_encrypt_record(sendbuf, rec_start, &tls->traffic_protection.enc)) != 0)
             goto Exit;
     }
+
+Exit:
+    return ret;
+}
+
+int ptls_send_hello_world(ptls_t *tls, ptls_buffer_t *sendbuf, const void *input, size_t len)
+{
+    int ret = 0;
+    size_t rec_start = sendbuf->off;
+
+    buffer_push_record(sendbuf, PTLS_CONTENT_TYPE_HELLO_WORLD, {ptls_buffer__do_pushv(sendbuf, input, len);});
+    /* encrypt the alert if we have the encryption keys, unless when it is the early data key */
+    if (tls->traffic_protection.enc.aead != NULL && !(tls->state <= PTLS_STATE_CLIENT_EXPECT_FINISHED)) {
+        if ((ret = buffer_encrypt_record(sendbuf, rec_start, &tls->traffic_protection.enc)) != 0)
+            goto Exit;
+    }
+    /* TODO If no aead defined should we send handshake failure ? */
 
 Exit:
     return ret;
