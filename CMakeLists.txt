@@ -37,7 +37,9 @@ SET(MINICRYPTO_LIBRARY_FILES
     deps/cifra/src/sha512.c)
 SET(CORE_FILES
     lib/picotls.c
-    lib/pembase64.c)
+    lib/pembase64.c
+    lib/protoop.c
+    lib/plugin.c include/picotls/picotls_struct.h)
 SET(CORE_TEST_FILES
     t/picotls.c)
 IF (WITH_DTRACE)

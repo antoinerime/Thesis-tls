@@ -4124,6 +4124,7 @@ static void update_open_count(ptls_context_t *ctx, ssize_t delta)
         ctx->update_open_count->cb(ctx->update_open_count, delta);
 }
 
+
 ptls_t *ptls_new(ptls_context_t *ctx, int is_server)
 {
     ptls_t *tls;
@@ -4134,6 +4135,9 @@ ptls_t *ptls_new(ptls_context_t *ctx, int is_server)
         return NULL;
 
     update_open_count(ctx, 1);
+    // Initialize hashmap to NULL
+    ctx->ops = NULL;
+    picotls_register_noparam_proto_op(ctx);
     *tls = (ptls_t){ctx};
     tls->is_server = is_server;
     tls->send_change_cipher_spec = ctx->send_change_cipher_spec;
@@ -4493,9 +4497,15 @@ static int handle_handshake_record(ptls_t *tls,
     return ret;
 }
 
-static int handle_input(ptls_t *tls, ptls_message_emitter_t *emitter, ptls_buffer_t *decryptbuf, const void *input, size_t *inlen,
-                        ptls_handshake_properties_t *properties)
+static proto_op_arg_t handle_input(ptls_t *tls)
 {
+    ptls_context_t *cnx = tls->ctx;
+    ptls_message_emitter_t *emitter = (ptls_message_emitter_t *) cnx->proto_op_inputv[0];
+    ptls_buffer_t *decryptbuf = (ptls_buffer_t *) cnx->proto_op_inputv[1];
+    const void *input = (const void *) cnx->proto_op_inputv[2];
+    size_t *inlen = (size_t *) cnx->proto_op_inputv[3];
+    ptls_handshake_properties_t *properties = cnx->proto_op_inputv[4];
+
     struct st_ptls_record_t rec;
     int ret;
 
@@ -4624,6 +4634,8 @@ int ptls_handshake(ptls_t *tls, ptls_buffer_t *_sendbuf, const void *input, size
     ret = PTLS_ERROR_IN_PROGRESS;
     while (ret == PTLS_ERROR_IN_PROGRESS && src != src_end) {
         size_t consumed = src_end - src;
+        // TODO
+        ret = PREPARE_AND_RUN_PROTOOP(tls, &emitter.super, &decryptbuf, serc, &consumed, properties);
         ret = handle_input(tls, &emitter.super, &decryptbuf, src, &consumed, properties);
         src += consumed;
         assert(decryptbuf.off == 0);
@@ -5343,4 +5355,9 @@ char *ptls_hexdump(char *buf, const void *_src, size_t len)
     }
     *dst++ = '\0';
     return buf;
+}
+
+void picotls_register_noparam_proto_op(ptls_context_t *cnx)
+{
+    register_noparam_proto_op(cnx, &PROTOOP_NO_PARAM_HANDLE_INPUT, &handle_input);
 }
