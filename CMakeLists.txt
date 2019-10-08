@@ -6,6 +6,9 @@ PROJECT(picotls)
 FIND_PACKAGE(PkgConfig REQUIRED)
 INCLUDE(cmake/dtrace-utils.cmake)
 
+FIND_LIBRARY(UBPF ubpf PATH ubpf/vm)
+MESSAGE(STATUS "Found ubpf at : ${UBPF} " )
+
 CHECK_DTRACE(${CMAKE_SOURCE_DIR}/picotls-probes.d)
 OPTION(WITH_DTRACE "use USDT (userspace Dtrace probes)" ${HAVE_DTRACE})
 IF (WITH_DTRACE)
@@ -19,6 +22,7 @@ INCLUDE_DIRECTORIES(
     deps/micro-ecc
     deps/picotest
     include
+    ubpf
     ${CMAKE_CURRENT_BINARY_DIR})
 SET(MINICRYPTO_LIBRARY_FILES
     deps/micro-ecc/uECC.c
@@ -39,9 +43,11 @@ SET(CORE_FILES
     lib/picotls.c
     lib/pembase64.c
     lib/protoop.c
-    lib/plugin.c include/picotls/picotls_struct.h)
+    lib/plugin.c)
 SET(CORE_TEST_FILES
-    t/picotls.c)
+    t/picotls.c
+    lib/protoop.c
+    lib/plugin.c)
 IF (WITH_DTRACE)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPICOTLS_USE_DTRACE=1")
     DEFINE_DTRACE_DEPENDENCIES(${CMAKE_SOURCE_DIR}/picotls-probes.d picotls)
@@ -65,7 +71,7 @@ IF (BROTLI_DEC_FOUND AND BROTLI_ENC_FOUND)
 ENDIF ()
 
 ADD_LIBRARY(picotls-core ${CORE_FILES})
-TARGET_LINK_LIBRARIES(picotls-core ${CORE_EXTRA_LIBS})
+TARGET_LINK_LIBRARIES(picotls-core ${CORE_EXTRA_LIBS} ${UBPF})
 ADD_LIBRARY(picotls-minicrypto
     ${MINICRYPTO_LIBRARY_FILES}
     lib/cifra.c
@@ -92,6 +98,7 @@ ADD_EXECUTABLE(test-minicrypto.t
     lib/cifra/aes128.c
     lib/cifra/aes256.c
     lib/cifra/random.c)
+TARGET_LINK_LIBRARIES(test-minicrypto.t ${UBPF})
 
 SET(TEST_EXES test-minicrypto.t)
 
@@ -100,7 +107,7 @@ IF (OPENSSL_FOUND AND NOT (OPENSSL_VERSION VERSION_LESS "1.0.1"))
     MESSAGE(STATUS "  Enabling OpenSSL support")
     INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
     ADD_LIBRARY(picotls-openssl lib/openssl.c)
-    TARGET_LINK_LIBRARIES(picotls-openssl ${OPENSSL_LIBRARIES} picotls-core ${CMAKE_DL_LIBS})
+    TARGET_LINK_LIBRARIES(picotls-openssl ${OPENSSL_LIBRARIES} picotls-core ${CMAKE_DL_LIBS} )
     ADD_EXECUTABLE(cli t/cli.c lib/pembase64.c)
     TARGET_LINK_LIBRARIES(cli picotls-openssl picotls-core)
     ADD_EXECUTABLE(picotls-esni src/esni.c)
@@ -122,7 +129,7 @@ IF (OPENSSL_FOUND AND NOT (OPENSSL_VERSION VERSION_LESS "1.0.1"))
         ${CORE_TEST_FILES}
         t/openssl.c)
     SET_TARGET_PROPERTIES(test-openssl.t PROPERTIES COMPILE_FLAGS "-DPTLS_MEMORY_DEBUG=1")
-    TARGET_LINK_LIBRARIES(test-openssl.t ${OPENSSL_LIBRARIES} ${CMAKE_DL_LIBS})
+    TARGET_LINK_LIBRARIES(test-openssl.t ${OPENSSL_LIBRARIES} ${CMAKE_DL_LIBS} ${UBPF})
 
     ADD_EXECUTABLE(ptlsbench t/ptlsbench.c)
     SET_TARGET_PROPERTIES(ptlsbench PROPERTIES COMPILE_FLAGS "-DPTLS_MEMORY_DEBUG=1")

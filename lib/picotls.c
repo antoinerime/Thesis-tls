@@ -4504,7 +4504,7 @@ static proto_op_arg_t handle_input(ptls_t *tls)
     ptls_buffer_t *decryptbuf = (ptls_buffer_t *) cnx->proto_op_inputv[1];
     const void *input = (const void *) cnx->proto_op_inputv[2];
     size_t *inlen = (size_t *) cnx->proto_op_inputv[3];
-    ptls_handshake_properties_t *properties = cnx->proto_op_inputv[4];
+    ptls_handshake_properties_t *properties = (ptls_handshake_properties_t *) cnx->proto_op_inputv[4];
 
     struct st_ptls_record_t rec;
     int ret;
@@ -4635,8 +4635,10 @@ int ptls_handshake(ptls_t *tls, ptls_buffer_t *_sendbuf, const void *input, size
     while (ret == PTLS_ERROR_IN_PROGRESS && src != src_end) {
         size_t consumed = src_end - src;
         // TODO
-        ret = PREPARE_AND_RUN_PROTOOP(tls, &emitter.super, &decryptbuf, serc, &consumed, properties);
-        ret = handle_input(tls, &emitter.super, &decryptbuf, src, &consumed, properties);
+        proto_op_arg_t outputv = 0;
+        PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_HANDLE_INPUT, &outputv, &emitter.super, &decryptbuf, src, &consumed, properties);
+        ret = (int) outputv;
+        //ret = handle_input(tls, &emitter.super, &decryptbuf, src, &consumed, properties);
         src += consumed;
         assert(decryptbuf.off == 0);
     }
@@ -4675,7 +4677,10 @@ int ptls_receive(ptls_t *tls, ptls_buffer_t *decryptbuf, const void *_input, siz
     /* loop until we decrypt some application data (or an error) */
     while (ret == 0 && input != end && decryptbuf_orig_size == decryptbuf->off) {
         size_t consumed = end - input;
-        ret = handle_input(tls, NULL, decryptbuf, input, &consumed, NULL);
+        proto_op_arg_t outputv = 0;
+        PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_HANDLE_INPUT, &outputv, NULL, decryptbuf, input, &consumed, NULL);
+        ret = (int) outputv;
+        //ret = handle_input(tls, NULL, decryptbuf, input, &consumed, NULL);
         input += consumed;
 
         switch (ret) {

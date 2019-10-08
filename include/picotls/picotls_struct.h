@@ -6,6 +6,8 @@
 #define PICOTLS_PICOTLS_STRUCT_H
 
 #include <stdbool.h>
+#include <stdint.h>
+#include "protoop.h"
 
 #define PTLS_HELLO_RANDOM_SIZE 32
 
@@ -548,15 +550,32 @@ typedef struct {
     proto_op_arg_t *outputv;
 }proto_op_params_t;
 
+typedef struct plugin{
+    char *name;
+    size_t mem_len;
+    void * mem;
+    UT_hash_handle hh;
+}plugin_t;
+
+typedef struct pluglet {
+    struct ubpf_vm *vm;
+    plugin_t *plugin;
+}pluglet_t;
+
+typedef struct observer_node {
+    pluglet_t *pluglet;
+    struct observer_node *next;
+}observer_node_t;
+
 typedef proto_op_arg_t (*protocol_operation)(ptls_t *);
 typedef struct proto_oop_param_struct {
     param_id_t param;
     protocol_operation core;
-    // TODO pluget_t *replace
+    pluglet_t *replace;
     bool intern;
     bool running;
-    //TODO observer_node_t pre;
-    //TODO observer_node_t post;
+    observer_node_t *pre;
+    observer_node_t *post;
     UT_hash_handle hh;
 } proto_op_param_struct_t;
 
@@ -689,7 +708,11 @@ struct st_ptls_context_t {
     /**
      *
      */
-     proto_op_arg_t *proto_op_inputv;
+    proto_op_arg_t *proto_op_inputv;
+     /**
+      *
+      */
+    plugin_t *plugin;
 };
 
 typedef struct st_ptls_raw_extension_t {

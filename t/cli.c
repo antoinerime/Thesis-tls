@@ -64,9 +64,11 @@ static void shift_buffer(ptls_buffer_t *buf, size_t delta)
 }
 
 static int handle_connection(int sockfd, ptls_context_t *ctx, const char *server_name, const char *input_file,
-                             ptls_handshake_properties_t *hsprop, int request_key_update, int keep_sender_open)
+                             ptls_handshake_properties_t *hsprop, int request_key_update, int keep_sender_open, bool isServer)
 {
     ptls_t *tls = ptls_new(ctx, server_name == NULL);
+    // if (isServer)
+    //     ubpf_read_and_register_plugins(ptls_get_context(tls), "/home/antoine/Documents/Memoire/Thesis-tls/plugins/HelloWorld/HelloWorld.plugin");
     ptls_buffer_t rbuf, encbuf, ptbuf;
     char bytebuf[16384];
     enum { IN_HANDSHAKE, IN_1RTT, IN_SHUTDOWN } state = IN_HANDSHAKE;
@@ -199,9 +201,9 @@ static int handle_connection(int sockfd, ptls_context_t *ctx, const char *server
                         fprintf(stderr, "ptls_send(1rtt):%d\n", ret);
                         goto Exit;
                     }
-                    char * hello = "Hello World !\0";
-                    ptls_send_hello_world(tls, &encbuf, hello, strlen(hello) + 1);
-                    ptbuf.off = 0;
+                    // char * hello = "Hello World !\0";
+                    // ptls_send_hello_world(tls, &encbuf, hello, strlen(hello) + 1);
+                    // ptbuf.off = 0;
                 }
             } else {
                 /* closed */
@@ -281,7 +283,7 @@ static int run_server(struct sockaddr *sa, socklen_t salen, ptls_context_t *ctx,
     while (1) {
         fprintf(stderr, "waiting for connections\n");
         if ((conn_fd = accept(listen_fd, NULL, 0)) != -1)
-            handle_connection(conn_fd, ctx, NULL, input_file, hsprop, request_key_update, 0);
+            handle_connection(conn_fd, ctx, NULL, input_file, hsprop, request_key_update, 0, true);
     }
 
     return 0;
@@ -303,7 +305,7 @@ static int run_client(struct sockaddr *sa, socklen_t salen, ptls_context_t *ctx,
         return 1;
     }
 
-    int ret = handle_connection(fd, ctx, server_name, input_file, hsprop, request_key_update, keep_sender_open);
+    int ret = handle_connection(fd, ctx, server_name, input_file, hsprop, request_key_update, keep_sender_open, false);
     free(hsprop->client.esni_keys.base);
     return ret;
 }
