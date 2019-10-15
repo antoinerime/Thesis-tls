@@ -4135,9 +4135,8 @@ ptls_t *ptls_new(ptls_context_t *ctx, int is_server)
         return NULL;
 
     update_open_count(ctx, 1);
-    // Initialize hashmap to NULL
-    ctx->ops = NULL;
-    picotls_register_noparam_proto_op(ctx);
+    if (!ctx->ops)
+        picotls_register_noparam_proto_op(ctx);
     *tls = (ptls_t){ctx};
     tls->is_server = is_server;
     tls->send_change_cipher_spec = ctx->send_change_cipher_spec;
@@ -4154,6 +4153,51 @@ ptls_t *ptls_new(ptls_context_t *ctx, int is_server)
 
     PTLS_PROBE(NEW, tls, is_server);
     return tls;
+}
+
+void ptls_proto_op_free(proto_op_struct_t *proto_op)
+{
+    free(proto_op->id);
+    proto_op_param_struct_t *param = proto_op->param;
+    observer_node_t *tmp_obs;
+    while(param->pre)
+    {
+        tmp_obs = param->pre;
+        param->pre = tmp_obs->next;
+        ubpf_destroy(tmp_obs->pluglet->vm);
+        free(tmp_obs->pluglet);
+        free(tmp_obs);
+    }
+    if (param->replace)
+    {
+        ubpf_destroy(param->replace->vm);
+        free(param->replace);
+    }
+    while(param->post)
+    {
+        tmp_obs = param->post;
+        param->post= tmp_obs->next;
+        ubpf_destroy(tmp_obs->pluglet->vm);
+        free(tmp_obs->pluglet);
+        free(tmp_obs);
+    }
+    free(param);
+    free(proto_op);
+
+}
+
+void ptls_ctx_free(ptls_context_t *ctx)
+{
+    proto_op_struct_t *s, *tmp;
+    HASH_ITER(hh, ctx->ops, s, tmp) {
+        ptls_proto_op_free(s);
+    }
+
+    plugin_t *p, *tmp_p;
+    HASH_ITER(hh, ctx->plugin, p, tmp_p) {
+        free(p->name);
+        free(p);
+    }
 }
 
 void ptls_free(ptls_t *tls)
@@ -4188,6 +4232,7 @@ void ptls_free(ptls_t *tls)
         ptls_clear_memory(tls->pending_handshake_secret, PTLS_MAX_DIGEST_SIZE);
         free(tls->pending_handshake_secret);
     }
+    ptls_ctx_free(tls->ctx);
     update_open_count(tls->ctx, -1);
     ptls_clear_memory(tls, sizeof(*tls));
     free(tls);

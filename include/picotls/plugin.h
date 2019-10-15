@@ -19,10 +19,10 @@
 # define N_ARGS_HELPER2(x1, x2, x3, x4, x5, x6, x7, x8, x9, n, ...) n
 
 #define PLUGIN_FNAME_MAX_SIZE 250
+#define EBPF_MEMORY_SIZE 100
 
 #define PREPARE_AND_RUN_PROTOOP(tls, pid, outputv, ...) prepare_and_run_proto_op_noparam_helper(tls, pid, NO_PARAM, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 
-typedef enum {REPLACE, PRE, POST} proto_op_type;
 
 /**
  *
@@ -61,5 +61,9 @@ void register_noparam_proto_op(ptls_context_t *cnx, proto_op_id_t *proto_id, pro
  * @param ...
  */
 void prepare_and_run_proto_op_noparam_helper(ptls_t *tls, proto_op_id_t *pid, param_id_t param, proto_op_arg_t *outputv, const uint nargs, ...);
+/**
+ *
+ */
+void *get_opaque_data(ptls_context_t *cnx, opaque_id_t op_id, size_t size, bool *allocate);
 #endif //PICOTLS_PLUGIN_H
 

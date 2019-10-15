@@ -9,6 +9,7 @@
 #include <libgen.h>
 #include <elf.h>
 #include "picotls/plugin.h"
+#include "picotls/memory.h"
 #include "picotls.h"
 
 proto_op_arg_t *new_inputv(ptls_context_t *cnx, const proto_op_params_t *pp);
@@ -18,7 +19,7 @@ plugin_t *initialize_plugin(ptls_context_t *cnx, char *line, size_t len);
 
 bool parse_line(char *line, char *dir_name, char **code_file_name, proto_op_id_t **pid, proto_op_type *type);
 
-bool register_plugin(ptls_context_t *cnx, char *fname, proto_op_id_t *pid, proto_op_type type, param_id_t param, plugin_t *plugin);
+bool register_plugin(ptls_context_t *cnx, char *fname, proto_op_id_t *pid, proto_op_type type, param_id_t param, plugin_t *plugin, pluglet_t *pluglet);
 
 int register_pluglet(proto_op_param_struct_t *param, proto_op_type type, char *fname, pluglet_t *pluglet);
 
@@ -26,9 +27,13 @@ int load_pluglet_code(char *fname, pluglet_t *pluglet);
 
 static void *readfile(const char *path, size_t maxlen, size_t *len);
 
-void exec_observer_plugin(observer_node_t *obs, proto_op_arg_t *outputv);
+void exec_observer_plugin(ptls_context_t *cnx, observer_node_t *obs, proto_op_arg_t *outputv);
 
-void exec_pluglet(pluglet_t *pluglet, proto_op_arg_t *outputv);
+void exec_pluglet(ptls_context_t *cnx, pluglet_t *pluglet, proto_op_arg_t *outputv);
+
+void abort_plugin(ptls_context_t *cnx, pluglet_stack_t *top);
+
+void destroy_pluglet(pluglet_t *pluglet);
 
 // TODO Move the helper fun
 void help_printf_str(char *s) {
@@ -72,13 +77,18 @@ int ubpf_read_and_register_plugins(ptls_context_t *ctx, char * plugin_name)
         return -1;
     }
     plugin_t *plugin = initialize_plugin(ctx, line, read);
-    if (plugin != NULL){
-        // TODO Handle
+    if (!plugin){
+        fprintf(stderr, "Failed to allocate memory %s:%d\n", __FILE__, __LINE__);
+        fclose(fp);
+        if (line)
+            free(line);
+        return -1;
     }
     bool ok = true;
     char *dir_name = dirname(fplugin_name);
 
     // TODO Check return value
+    pluglet_stack_t *top = calloc(1, sizeof(pluglet_stack_t));
     while((read = getline(&line, &len, fp)) != -1 && ok) {
         char *code_file_name = NULL;
         proto_op_id_t *pid = NULL;
@@ -90,19 +100,76 @@ int ubpf_read_and_register_plugins(ptls_context_t *ctx, char * plugin_name)
         }
 
         param_id_t param = NO_PARAM;
-        ok = register_plugin(ctx, code_file_name, pid, type, param, plugin);
+        pluglet_t *pluglet = calloc(1, sizeof(pluglet));
+        ok = register_plugin(ctx, code_file_name, pid, type, param, plugin, pluglet);
+
+        pluglet_stack_t *stack = calloc(1, sizeof(pluglet_stack_t));
+        stack->pluglet = pluglet;
+        stack->pid = pid;
+        stack->type = type;
+        stack->next = top->next;
+        top->next = stack;
     }
     fclose(fp);
     if (line)
         free(line);
     if (!ok)
     {
-        // TODO Remove all already registered plugins
+        free(plugin->name);
+        free(plugin);
+        abort_plugin(ctx, top);
+        free(top);
     } else
     {
         HASH_ADD_STR(ctx->plugin, name, plugin);
     }
     return ok;
+}
+
+void abort_plugin(ptls_context_t *cnx, pluglet_stack_t *top) {
+    pluglet_stack_t *stack;
+    proto_op_struct_t *proto_struct;
+    proto_op_param_struct_t *param;
+    observer_node_t *obs;
+    stack = top->next;
+    while (stack){
+        if (stack->pid->hash == 0)
+        {
+            stack->pid->hash = hash_value_str(stack->pid->id);
+        }
+        HASH_FIND_PID(cnx->ops, &(stack->pid->hash), proto_struct);
+        if (proto_struct)
+        {
+            param = proto_struct->param;
+            switch (stack->type)
+            {
+                case PRE:
+                    obs = param->pre;
+                    param->pre = obs->next;
+                    free(obs);
+                    break;
+                case REPLACE:
+                    param->replace = NULL;
+                    break;
+                case POST:
+                    obs = param->post;
+                    param->post = obs->next;
+                    free(obs);
+                    break;
+            }
+            destroy_pluglet(stack->pluglet);
+            free(stack->pid->id);
+            free(stack->pid);
+            top = stack;
+            stack = top->next;
+            free(top);
+        }
+    }
+}
+
+void destroy_pluglet(pluglet_t *pluglet) {
+    ubpf_destroy(pluglet->vm);
+    free(pluglet);
 }
 
 int register_pluglet(proto_op_param_struct_t *param, proto_op_type type, char *fname, pluglet_t *pluglet) {
@@ -127,8 +194,8 @@ int register_pluglet(proto_op_param_struct_t *param, proto_op_type type, char *f
             {
                 observer_node_t *pre = calloc(1, sizeof(observer_node_t));
                 pre->pluglet = pluglet;
-                pre->next = NULL;
-                param->pre->next = pre;
+                pre->next = param->pre->next;
+                param->pre = pre;
             } else {
                 observer_node_t *pre = calloc(1, sizeof(observer_node_t));
                 pre->pluglet = pluglet;
@@ -139,15 +206,15 @@ int register_pluglet(proto_op_param_struct_t *param, proto_op_type type, char *f
         case POST:
             if (param->pre != NULL)
             {
-                observer_node_t *pre = calloc(1, sizeof(observer_node_t));
-                pre->pluglet = pluglet;
-                pre->next = NULL;
-                param->pre->next = pre;
+                observer_node_t *post = calloc(1, sizeof(observer_node_t));
+                post->pluglet = pluglet;
+                post->next = param->post->next;
+                param->post = post;
             } else {
-                observer_node_t *pre = calloc(1, sizeof(observer_node_t));
-                pre->pluglet = pluglet;
-                pre->next = NULL;
-                param->pre = pre;
+                observer_node_t *post = calloc(1, sizeof(observer_node_t));
+                post->pluglet = pluglet;
+                post->next = NULL;
+                param->post = post;
             }
             break;
         default:
@@ -162,17 +229,15 @@ int load_pluglet_code(char *fname, pluglet_t *pluglet) {
     if (code == NULL)
         return 1;
 
-    // TODO Register mem ?
-
     bool elf = code_len >= SELFMAG && !memcmp(code, ELFMAG, SELFMAG);
 
     char *errmsg;
     int rv;
     if (elf) {
-        // TODO memory_ptr and memory size ?
-        rv = ubpf_load_elf(pluglet->vm, code, code_len, &errmsg, 10, 100);
+        // TODO memory_ptr ?
+        rv = ubpf_load_elf(pluglet->vm, code, code_len, &errmsg, 10, EBPF_MEMORY_SIZE);
     } else {
-        rv = ubpf_load(pluglet->vm, code, code_len, &errmsg, 10, 100);
+        rv = ubpf_load(pluglet->vm, code, code_len, &errmsg, 10, EBPF_MEMORY_SIZE);
     }
     free(code);
 
@@ -185,12 +250,11 @@ int load_pluglet_code(char *fname, pluglet_t *pluglet) {
     return 0;
 }
 
-bool register_plugin(ptls_context_t *cnx, char *fname, proto_op_id_t *pid, proto_op_type type, param_id_t param, plugin_t *plugin) {
-    pluglet_t *pluglet = calloc(1, sizeof(pluglet));
+bool register_plugin(ptls_context_t *cnx, char *fname, proto_op_id_t *pid, proto_op_type type, param_id_t param, plugin_t *plugin, pluglet_t *pluglet) {
     if (!pluglet)
     {
         fprintf(stderr, "Failed to allocate pluglet memory %s: %d\n", __FILE__, __LINE__);
-        return -1;
+        return false;
     }
     pluglet->vm = ubpf_create();
     ubpf_register_basic_functions(pluglet->vm);
@@ -218,7 +282,7 @@ bool register_plugin(ptls_context_t *cnx, char *fname, proto_op_id_t *pid, proto
         // TODO raise error
         ret = -1;
     }
-    return ret;
+    return ret == 0;
 }
 
 bool parse_line(char *line, char *dir_name, char **code_file_name, proto_op_id_t **pid, proto_op_type *type) {
@@ -264,7 +328,18 @@ bool parse_line(char *line, char *dir_name, char **code_file_name, proto_op_id_t
 
 plugin_t *initialize_plugin(ptls_context_t *cnx, char *line, size_t len) {
     plugin_t *p = calloc(1, sizeof(plugin_t));
+    if (!p)
+    {
+        fprintf(stderr, "Failed to allocate memory %s:%d\n", __FILE__, __LINE__);
+        return NULL;
+    }
     p->name = calloc((len+1), sizeof(char));
+    if (!p->name)
+    {
+        fprintf(stderr, "Failed to allocate memory %s:%d\n", __FILE__, __LINE__);
+        free(p);
+        return NULL;
+    }
     strncpy(p->name, line, len);
     strncat(p->name, "\0", 1);
     return p;
@@ -391,38 +466,43 @@ proto_op_arg_t run_plugin_proto_op_internal(const proto_op_params_t *pp, ptls_t 
     }else {
         popst = post->param;
     }
-
+    // Store the current plugin to put it back at the end of the function
+    plugin_t *previous_plugin = cnx->current_plugin;
     proto_op_arg_t status;
 
     // TODO check if correct number of arg
     cnx->proto_op_inputv = pp->inputv;
     observer_node_t *obs = popst->pre;
-    exec_observer_plugin(obs, pp->outputv);
+    exec_observer_plugin(cnx, obs, pp->outputv);
     if (popst->replace)
-        exec_pluglet(obs->pluglet, pp->outputv);
+        exec_pluglet(cnx, obs->pluglet, pp->outputv);
     else
     {
+        // We are not in the context of a plugin if the we execute the core code
+        cnx->current_plugin = NULL;
         status = popst->core(tls);
         memcpy(pp->outputv, &status, sizeof(proto_op_arg_t));
     }
     obs = popst->post;
-    exec_observer_plugin(obs, pp->outputv);
+    exec_observer_plugin(cnx, obs, pp->outputv);
+    cnx->current_plugin = previous_plugin;
     return status;
 }
 
-void exec_observer_plugin(observer_node_t *obs, proto_op_arg_t *outputv) {
+void exec_observer_plugin(ptls_context_t *cnx, observer_node_t *obs, proto_op_arg_t *outputv) {
     while (obs)
     {
-        exec_pluglet(obs->pluglet, outputv);
+        exec_pluglet(cnx, obs->pluglet, outputv);
         obs = obs->next;
     }
 }
 
-void exec_pluglet(pluglet_t *pluglet, proto_op_arg_t *outputv) {
+void exec_pluglet(ptls_context_t *cnx, pluglet_t *pluglet, proto_op_arg_t *outputv) {
     plugin_t *p = pluglet->plugin;
     // TODO IF jit
     // How to not override the ouptput of core
-    *(outputv) = ubpf_exec(pluglet->vm, p->mem, p->mem_len);
+    cnx->current_plugin = pluglet->plugin;
+    *(outputv) = ubpf_exec(pluglet->vm, p->memory, PLUGIN_MEMORY);
 }
 
 /**
@@ -448,5 +528,42 @@ void prepare_and_run_proto_op_noparam_helper(ptls_t *tls, proto_op_id_t *pid, pa
     va_end(ap);
     proto_op_params_t pp = {.id = pid, .param = &param, .caller_is_intern = true, .inputc = nargs, .inputv = args, .outputv =outputv};
     run_plugin_proto_op_internal(&pp, tls);
+
+}
+/**
+ *
+ */
+void *get_opaque_data(ptls_context_t *cnx, opaque_id_t op_id, size_t size, bool *allocate)
+{
+    plugin_t *plugin = cnx->current_plugin;
+    if (!plugin)
+    {
+        fprintf(stderr, "Only plugin can get opaque data %s: %d\n", __FILE__, __LINE__);
+        return NULL;
+    }
+    if (op_id > OPAQUE_ID_MAX)
+    {
+        fprintf(stderr, "Error opaque id should be lower than %d\n", OPAQUE_ID_MAX);
+        return NULL;
+    }
+    ptls_opaque_meta_t data = plugin->opaque_metas[op_id];
+    if (data.start_ptr)
+    {
+        if (data.size != size)
+        {
+            fprintf(stderr, "Opaque data size does not correspond %s:%d\n", __FILE__, __LINE__);
+            return NULL;
+        }
+        *(allocate) = false;
+        return data.start_ptr;
+    }
+    data.start_ptr = my_malloc(cnx, size);
+    if (!data.start_ptr)
+    {
+        fprintf(stderr, "Failed to allocate memory with my malloc %s: %d\n", __FILE__, __LINE__);
+        return NULL;
+    }
+    *(allocate) = true;
+    return data.start_ptr;
 
 }

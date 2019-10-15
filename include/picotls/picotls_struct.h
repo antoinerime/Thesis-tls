@@ -165,6 +165,7 @@ typedef struct st_ptls_key_schedule_t ptls_key_schedule_t;
 
 typedef uint64_t proto_op_arg_t;
 typedef uint16_t param_id_t;
+typedef uint16_t opaque_id_t;
 
 /**
  * represents a sequence of octets
@@ -541,6 +542,9 @@ PTLS_CALLBACK_TYPE(int, update_esni_key, ptls_t *tls, ptls_iovec_t secret, ptls_
 /**
  *
  */
+#define OPAQUE_ID_MAX 0x10
+#define PLUGIN_MEMORY (6 * 1024 * 1024)
+typedef enum {REPLACE, PRE, POST} proto_op_type;
 typedef struct {
     proto_op_id_t *id;
     param_id_t *param;
@@ -550,11 +554,27 @@ typedef struct {
     proto_op_arg_t *outputv;
 }proto_op_params_t;
 
+typedef struct ptls_opaque_meta {
+    void *start_ptr;
+    size_t size;
+}ptls_opaque_meta_t;
+
+typedef struct memory_pool {
+    uint64_t num_of_blocks;
+    uint64_t size_of_each_block;
+    uint64_t num_free_blocks;
+    uint64_t num_initialized;
+    uint8_t *mem_start;
+    uint8_t *next;
+}memory_pool_t;
+
 typedef struct plugin{
     char *name;
-    size_t mem_len;
-    void * mem;
     UT_hash_handle hh;
+
+    ptls_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
+    memory_pool_t memory_pool;
+    char memory[PLUGIN_MEMORY];
 }plugin_t;
 
 typedef struct pluglet {
@@ -586,6 +606,13 @@ typedef struct proto_op_struct {
     UT_hash_handle hh;
 
 }proto_op_struct_t;
+
+typedef struct pluglet_stack {
+    pluglet_t *pluglet;
+    proto_op_id_t *pid;
+    proto_op_type type;
+    struct pluglet_stack *next;
+}pluglet_stack_t;
 
 /**
  * the configuration
@@ -712,6 +739,10 @@ struct st_ptls_context_t {
      /**
       *
       */
+    plugin_t *current_plugin;
+    /**
+     *
+     */
     plugin_t *plugin;
 };
 
