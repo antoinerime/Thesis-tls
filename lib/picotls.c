@@ -31,6 +31,8 @@
 #include <sys/time.h>
 #endif
 #include "picotls.h"
+#include "picotls/getset.h"
+
 #if PICOTLS_USE_DTRACE
 #include "picotls-probes.h"
 #endif
@@ -4242,6 +4244,97 @@ ptls_context_t *ptls_get_context(ptls_t *tls)
 {
     return tls->ctx;
 }
+
+uint64_t inline ptls_get_field(ptls_t *tls, enum ptls_field field)
+{
+    switch (field) {
+        case PTLS_CTX:
+            return (uint64_t ) tls->ctx;
+        case PTLS_STATE:
+            return tls->state;
+        case PTLS_SERV_NAME:
+            return (uint64_t) tls->server_name;
+        case PTLS_NEG_PROTO:
+            return (uint64_t) tls->negotiated_protocol;
+        case PTLS_KEY_SHARE:
+            return (uint64_t) tls->key_share;
+        case PTLS_CIPH_SUITE:
+            return (uint64_t) tls->cipher_suite;
+        case PTLS_CLI_RAND:
+            return (uint64_t) tls->client_random;
+        case PTLS_ESNI:
+            return (uint64_t) tls->esni;
+        case PTLS_IS_SRV:
+            return tls->is_server;
+        case PTLS_IS_PSK_HANDSHK:
+            return tls->is_psk_handshake;
+        case PTLS_CHANGE_CIPHER_SPEC:
+            return tls->send_change_cipher_spec;
+        case PTLS_NEED_KEY_UPDT:
+            return tls->needs_key_update;
+        case PTLS_SKIP_TRACING:
+            return tls->skip_tracing;
+        case PTLS_PENDING_HANDSHAKE_SCRT:
+            return (uint64_t) tls->pending_handshake_secret;
+        case PTLS_DATA_PTR:
+            return (uint64_t) tls->data_ptr;
+        default:
+            return 0;
+    }
+}
+
+void inline ptls_set_field(ptls_t *tls, enum ptls_field field, uint64_t value)
+{
+    switch(field)
+    {
+        case PTLS_CTX:
+            tls->ctx = (ptls_context_t *) value;
+            break;
+        case PTLS_STATE:
+            tls->state = value;
+            break;
+        case PTLS_SERV_NAME:
+            tls->server_name = (char *) value;
+            break;
+        case PTLS_NEG_PROTO:
+            tls->negotiated_protocol = (char *) value;
+            break;
+        case PTLS_KEY_SHARE:
+            tls->key_share = (ptls_key_exchange_algorithm_t *) value;
+            break;
+        case PTLS_CIPH_SUITE:
+            tls->cipher_suite = (ptls_cipher_suite_t *) value;
+            break;
+        case PTLS_ESNI:
+            tls->esni = (ptls_esni_secret_t *) value;
+            break;
+        case PTLS_IS_SRV:
+            tls->is_server = value;
+            break;
+        case PTLS_IS_PSK_HANDSHK:
+            tls->is_psk_handshake = value;
+            break;
+        case PTLS_CHANGE_CIPHER_SPEC:
+            tls->send_change_cipher_spec = value;
+            break;
+        case PTLS_NEED_KEY_UPDT:
+            tls->needs_key_update = value;
+            break;
+        case PTLS_SKIP_TRACING:
+            tls->skip_tracing = value;
+            break;
+        case PTLS_PENDING_HANDSHAKE_SCRT:
+            tls->pending_handshake_secret = (uint8_t *) value;
+            break;
+        case PTLS_DATA_PTR:
+            tls->data_ptr = (void *) value;
+            break;
+        default:
+            fprintf(stderr, "Unknown field in ptls set field\n");
+            return;
+    }
+}
+
 
 void ptls_set_context(ptls_t *tls, ptls_context_t *ctx)
 {

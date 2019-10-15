@@ -45,13 +45,15 @@ SET(CORE_FILES
     lib/protoop.c
     lib/plugin.c
     lib/memcpy.c
-    lib/memory.c)
+    lib/memory.c
+    lib/getset.c)
 SET(CORE_TEST_FILES
     t/picotls.c
     lib/protoop.c
     lib/plugin.c
     lib/memcpy.c
-    lib/memory.c)
+    lib/memory.c
+    lib/getset.c)
 IF (WITH_DTRACE)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPICOTLS_USE_DTRACE=1")
     DEFINE_DTRACE_DEPENDENCIES(${CMAKE_SOURCE_DIR}/picotls-probes.d picotls)
