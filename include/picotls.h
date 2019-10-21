@@ -241,6 +241,7 @@ ptls_t *ptls_new(ptls_context_t *ctx, int is_server);
 /**
  * releases all resources associated to the object
  */
+void ptls_ctx_free(ptls_context_t *ctx);
 void ptls_free(ptls_t *tls);
 /**
  * returns address of the crypto callbacks that the connection is using

@@ -4145,6 +4145,8 @@ ptls_t *ptls_new(ptls_context_t *ctx, int is_server)
         return NULL;
 
     update_open_count(ctx, 1);
+    ctx->ops = NULL;
+    ctx->plugin = NULL;
     picotls_register_noparam_proto_op(ctx);
     *tls = (ptls_t){ctx};
     tls->is_server = is_server;
@@ -4201,12 +4203,14 @@ void ptls_ctx_free(ptls_context_t *ctx)
     HASH_ITER(hh, ctx->ops, s, tmp) {
         ptls_proto_op_free(s);
     }
+    ctx->ops = NULL;
 
     plugin_t *p, *tmp_p;
     HASH_ITER(hh, ctx->plugin, p, tmp_p) {
         free(p->name);
         free(p);
     }
+    ctx->plugin = NULL;
 }
 
 void ptls_free(ptls_t *tls)
@@ -4241,7 +4245,6 @@ void ptls_free(ptls_t *tls)
         ptls_clear_memory(tls->pending_handshake_secret, PTLS_MAX_DIGEST_SIZE);
         free(tls->pending_handshake_secret);
     }
-    ptls_ctx_free(tls->ctx);
     update_open_count(tls->ctx, -1);
     ptls_clear_memory(tls, sizeof(*tls));
     free(tls);
@@ -4779,7 +4782,6 @@ int ptls_handshake(ptls_t *tls, ptls_buffer_t *_sendbuf, const void *input, size
     ret = PTLS_ERROR_IN_PROGRESS;
     while (ret == PTLS_ERROR_IN_PROGRESS && src != src_end) {
         size_t consumed = src_end - src;
-        // TODO
         proto_op_arg_t outputv = 0;
         PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_HANDLE_INPUT, &outputv, &emitter.super, &decryptbuf, src, &consumed, properties);
         ret = (int) outputv;

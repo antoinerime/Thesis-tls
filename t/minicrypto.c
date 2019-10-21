@@ -64,7 +64,9 @@ static void test_secp256r1_sign(void)
 static void test_hrr(void)
 {
     ptls_key_exchange_algorithm_t *client_keyex[] = {&ptls_minicrypto_x25519, &ptls_minicrypto_secp256r1, NULL};
-    ptls_context_t client_ctx = {ptls_minicrypto_random_bytes, &ptls_get_time, client_keyex, ptls_minicrypto_cipher_suites};
+    ptls_context_t client_ctx = {ptls_minicrypto_random_bytes, &ptls_get_time, client_keyex, ptls_minicrypto_cipher_suites,
+                                 .ops = NULL,
+                                 .plugin =NULL};
     ptls_t *client, *server;
     ptls_buffer_t cbuf, sbuf, decbuf;
     uint8_t cbuf_small[16384], sbuf_small[16384], decbuf_small[16384];
@@ -158,7 +160,9 @@ int main(int argc, char **argv)
                              NULL,
                              NULL,
                              NULL,
-                             &sign_certificate.super};
+                             &sign_certificate.super,
+                             .ops = NULL,
+                             .plugin =NULL};
     ctx = ctx_peer = &ctxbuf;
     ADD_FFX_AES128_ALGORITHMS(minicrypto);
     ADD_FFX_CHACHA20_ALGORITHMS(minicrypto);

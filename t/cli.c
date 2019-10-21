@@ -53,6 +53,8 @@
 #endif
 #include "util.h"
 
+
+
 static void shift_buffer(ptls_buffer_t *buf, size_t delta)
 {
     if (delta != 0) {
@@ -64,11 +66,12 @@ static void shift_buffer(ptls_buffer_t *buf, size_t delta)
 }
 
 static int handle_connection(int sockfd, ptls_context_t *ctx, const char *server_name, const char *input_file,
-                             ptls_handshake_properties_t *hsprop, int request_key_update, int keep_sender_open, bool isServer)
+                             ptls_handshake_properties_t *hsprop, int request_key_update, int keep_sender_open, bool isServer,
+                             char plugins[10][PLUGIN_FNAME_MAX_SIZE], int number_of_plugins)
 {
     ptls_t *tls = ptls_new(ctx, server_name == NULL);
-    // if (isServer)
-    //     ubpf_read_and_register_plugins(ptls_get_context(tls), "/home/antoine/Documents/Memoire/Thesis-tls/plugins/HelloWorld/helloWorld.plugin");
+    for (int i=0; i<number_of_plugins; i++)
+        ubpf_read_and_register_plugins(ctx, plugins[i]);
     ptls_buffer_t rbuf, encbuf, ptbuf;
     char bytebuf[16384];
     enum { IN_HANDSHAKE, IN_1RTT, IN_SHUTDOWN } state = IN_HANDSHAKE;
@@ -253,12 +256,14 @@ Exit:
     ptls_buffer_dispose(&rbuf);
     ptls_buffer_dispose(&encbuf);
     ptls_buffer_dispose(&ptbuf);
+    ptls_ctx_free(ctx);
     ptls_free(tls);
     return ret != 0;
 }
 
 static int run_server(struct sockaddr *sa, socklen_t salen, ptls_context_t *ctx, const char *input_file,
-                      ptls_handshake_properties_t *hsprop, int request_key_update)
+                      ptls_handshake_properties_t *hsprop, int request_key_update,
+                      char plugins[10][PLUGIN_FNAME_MAX_SIZE], int number_of_plugins)
 {
     int listen_fd, conn_fd, on = 1;
 
@@ -283,14 +288,15 @@ static int run_server(struct sockaddr *sa, socklen_t salen, ptls_context_t *ctx,
     while (1) {
         fprintf(stderr, "waiting for connections\n");
         if ((conn_fd = accept(listen_fd, NULL, 0)) != -1)
-            handle_connection(conn_fd, ctx, NULL, input_file, hsprop, request_key_update, 0, true);
+            handle_connection(conn_fd, ctx, NULL, input_file, hsprop, request_key_update, 0, true, plugins, number_of_plugins);
     }
 
     return 0;
 }
 
 static int run_client(struct sockaddr *sa, socklen_t salen, ptls_context_t *ctx, const char *server_name, const char *input_file,
-                      ptls_handshake_properties_t *hsprop, int request_key_update, int keep_sender_open)
+                      ptls_handshake_properties_t *hsprop, int request_key_update, int keep_sender_open,
+                      char plugins[10][PLUGIN_FNAME_MAX_SIZE], int number_of_plugins)
 {
     int fd;
 
@@ -305,7 +311,7 @@ static int run_client(struct sockaddr *sa, socklen_t salen, ptls_context_t *ctx,
         return 1;
     }
 
-    int ret = handle_connection(fd, ctx, server_name, input_file, hsprop, request_key_update, keep_sender_open, false);
+    int ret = handle_connection(fd, ctx, server_name, input_file, hsprop, request_key_update, keep_sender_open, false, plugins, number_of_plugins);
     free(hsprop->client.esni_keys.base);
     return ret;
 }
@@ -365,9 +371,10 @@ int main(int argc, char **argv)
     res_init();
 
     ptls_key_exchange_algorithm_t *key_exchanges[128] = {NULL};
-    ptls_context_t ctx = {ptls_openssl_random_bytes, &ptls_get_time, key_exchanges, ptls_openssl_cipher_suites, .ops = NULL};
-    picotls_register_noparam_proto_op(&ctx);
+    ptls_context_t ctx = {ptls_openssl_random_bytes, &ptls_get_time, key_exchanges, ptls_openssl_cipher_suites};
     ptls_handshake_properties_t hsprop = {{{{NULL}}}};
+    char plugins_array[10][PLUGIN_FNAME_MAX_SIZE];
+    int number_of_plugin = 0;
     const char *host, *port, *file = NULL, *esni_file = NULL;
     struct {
         ptls_key_exchange_context_t *elements[16];
@@ -419,8 +426,18 @@ int main(int argc, char **argv)
             hsprop.client.negotiate_before_key_exchange = 1;
             break;
         case 'p':
-            // TODO check ret val
-            ubpf_read_and_register_plugins(&ctx, optarg);
+            if (number_of_plugin > 10)
+            {
+                fprintf(stderr, "Number of plugins limited to 10\n");
+                exit(-1);
+            }
+            if (sizeof(optarg) > PLUGIN_FNAME_MAX_SIZE)
+            {
+                fprintf(stderr, "Plugin file size limited to %d\n", PLUGIN_FNAME_MAX_SIZE);
+                exit(-1);
+            }
+            strncpy(plugins_array[number_of_plugin], optarg, PLUGIN_FNAME_MAX_SIZE);
+            number_of_plugin++;
             break;
         case 'e':
             use_early_data = 1;
@@ -544,8 +561,8 @@ int main(int argc, char **argv)
         exit(1);
 
     if (is_server) {
-        return run_server((struct sockaddr *)&sa, salen, &ctx, file, &hsprop, request_key_update);
+        return run_server((struct sockaddr *)&sa, salen, &ctx, file, &hsprop, request_key_update, plugins_array, number_of_plugin);
     } else {
-        return run_client((struct sockaddr *)&sa, salen, &ctx, host, file, &hsprop, request_key_update, keep_sender_open);
+        return run_client((struct sockaddr *)&sa, salen, &ctx, host, file, &hsprop, request_key_update, keep_sender_open, plugins_array, number_of_plugin);
     }
 }
