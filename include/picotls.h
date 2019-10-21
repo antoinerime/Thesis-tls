@@ -177,13 +177,13 @@ int ptls_send_hello_world(ptls_t *tls, ptls_buffer_t *sendbuf, const void* input
             ptls__key_schedule_update_hash(_key_sched, _buf->base + mess_start, _buf->off - mess_start);                           \
     } while (0)
 
-#define ptls_push_message(emitter, key_sched, type, block)                                                                         \
+#define ptls_push_message(tls, emitter, key_sched, type, block)                                                                         \
     do {                                                                                                                           \
         ptls_message_emitter_t *_emitter = (emitter);                                                                              \
         if ((ret = _emitter->begin_message(_emitter)) != 0)                                                                        \
             goto Exit;                                                                                                             \
         ptls_buffer_push_message_body(_emitter->buf, (key_sched), (type), block);                                                  \
-        if ((ret = _emitter->commit_message(_emitter)) != 0)                                                                       \
+        if ((ret = _emitter->commit_message(tls, _emitter)) != 0)                                                                       \
             goto Exit;                                                                                                             \
     } while (0)
 

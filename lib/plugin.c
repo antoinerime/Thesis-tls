@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <libgen.h>
 #include <elf.h>
+#include <picotls/memcpy.h>
 #include "picotls/plugin.h"
 #include "picotls/memory.h"
 #include "picotls.h"
@@ -27,9 +28,9 @@ int load_pluglet_code(char *fname, pluglet_t *pluglet);
 
 static void *readfile(const char *path, size_t maxlen, size_t *len);
 
-void exec_observer_plugin(ptls_context_t *cnx, observer_node_t *obs, proto_op_arg_t *outputv);
+void exec_observer_plugin(ptls_t *tls, ptls_context_t *cnx, observer_node_t *obs, proto_op_arg_t *outputv);
 
-void exec_pluglet(ptls_context_t *cnx, pluglet_t *pluglet, proto_op_arg_t *outputv);
+void exec_pluglet(ptls_t *tls, ptls_context_t *cnx, pluglet_t *pluglet, proto_op_arg_t *outputv);
 
 void abort_plugin(ptls_context_t *cnx, pluglet_stack_t *top);
 
@@ -39,11 +40,29 @@ void destroy_pluglet(pluglet_t *pluglet);
 void help_printf_str(char *s) {
     printf("%s\n", s);
 }
+
+void help_printf_int(int i) {
+    printf("%d\n", i);
+}
 int ubpf_register_basic_functions(struct ubpf_vm *vm)
 {
 int ret = 0;
 ret += ubpf_register(vm, 0x01, "fprintf", &fprintf);
 ret += ubpf_register(vm, 0x02, "help_printf_str", &help_printf_str);
+ret += ubpf_register(vm, 0x10, "help_printf_int", &help_printf_int);
+
+ret += ubpf_register(vm, 0x03, "my_malloc", &my_malloc);
+ret += ubpf_register(vm, 0x04, "my_free", &my_free);
+ret += ubpf_register(vm, 0x05, "my_realloc", &my_realloc);
+ret += ubpf_register(vm, 0x06, "my_memcpy", &my_memcpy);
+ret += ubpf_register(vm, 0x07, "my_memset", &my_memset);
+
+ret += ubpf_register(vm, 0x08, "get_opaque_data", &get_opaque_data);
+ret += ubpf_register(vm, 0x09, "ptls_get_field", &ptls_get_field);
+ret += ubpf_register(vm, 0x0a, "ptls_set_field", &ptls_set_field);
+ret += ubpf_register(vm, 0x0b, "ptls_get_ctx_field", &ptls_get_ctx_field);
+ret += ubpf_register(vm, 0x0c, "ptls_set_ctx_field", &ptls_set_ctx_field);
+
 return ret;
 }
 
@@ -121,6 +140,7 @@ int ubpf_read_and_register_plugins(ptls_context_t *ctx, char * plugin_name)
         free(top);
     } else
     {
+        init_memory_management(plugin);
         HASH_ADD_STR(ctx->plugin, name, plugin);
     }
     return ok;
@@ -397,27 +417,27 @@ void register_noparam_proto_op(ptls_context_t *cnx, proto_op_id_t *proto_id, pro
     HASH_FIND_PID(cnx->ops, &(proto_id->hash), proto_op);
     if (proto_op)
     {
-        fprintf(stderr, "Protocol operation already in hashmap");
+        // fprintf(stderr, "Protocol operation already in hashmap\n");
         return;
     }
 
     proto_op = (proto_op_struct_t*) calloc(1, sizeof(proto_op_struct_t));
     if (!proto_op)
     {
-        fprintf(stderr, "Failed to allocate memory in %s, line %d", __FILE__, __LINE__);
+        fprintf(stderr, "Failed to allocate memory in %s, line %d\n", __FILE__, __LINE__);
         return;
     }
     proto_op_id_t *id = (proto_op_id_t *) calloc(1, sizeof(proto_op_id_t));
     if (!id)
     {
-        fprintf(stderr, "Failed to allocate memory in %s, line %d", __FILE__, __LINE__);
+        fprintf(stderr, "Failed to allocate memory in %s, line %d\n", __FILE__, __LINE__);
         return;
     }
     size_t str_id_len = sizeof(proto_id->id) + 1;
     id->id = (char *) malloc(sizeof(char) * str_id_len);
     if (!id->id)
     {
-        fprintf(stderr, "Failed to allocate memory in %s, line %d", __FILE__, __LINE__);
+        fprintf(stderr, "Failed to allocate memory in %s, line %d\n", __FILE__, __LINE__);
         return;
     }
     strncpy(id->id, proto_id->id, str_id_len);
@@ -435,7 +455,7 @@ proto_op_param_struct_t *create_protocol_operation_param(param_id_t param, proto
     proto_op_param_struct_t *proto_op_param = (proto_op_param_struct_t *) calloc(1, sizeof(proto_op_param_struct_t));
     if (!proto_op_param)
     {
-        fprintf(stderr, "Failed to allocate memory in %s:%d", __FILE__, __LINE__);
+        fprintf(stderr, "Failed to allocate memory in %s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
     proto_op_param->param = param;
@@ -457,7 +477,7 @@ proto_op_arg_t run_plugin_proto_op_internal(const proto_op_params_t *pp, ptls_t 
     HASH_FIND_PID(cnx->ops, &(pp->id->hash), post);
     if (!post)
     {
-        fprintf(stderr, "Proto opertation doesn't exist at %s:%d\n", __FILE__, __LINE__);
+        fprintf(stderr, "Proto opertation %s doesn't exist at %s:%d\n", pp->id->id, __FILE__, __LINE__);
         exit(-1);
     }
     proto_op_param_struct_t *popst;
@@ -473,36 +493,37 @@ proto_op_arg_t run_plugin_proto_op_internal(const proto_op_params_t *pp, ptls_t 
     // TODO check if correct number of arg
     cnx->proto_op_inputv = pp->inputv;
     observer_node_t *obs = popst->pre;
-    exec_observer_plugin(cnx, obs, pp->outputv);
+    exec_observer_plugin(tls, cnx, obs, pp->outputv);
     if (popst->replace)
-        exec_pluglet(cnx, obs->pluglet, pp->outputv);
+        exec_pluglet(tls, cnx, obs->pluglet, pp->outputv);
     else
     {
         // We are not in the context of a plugin if the we execute the core code
         cnx->current_plugin = NULL;
-        status = popst->core(tls);
+        cnx->protop_op_output = popst->core(tls);
         memcpy(pp->outputv, &status, sizeof(proto_op_arg_t));
     }
     obs = popst->post;
-    exec_observer_plugin(cnx, obs, pp->outputv);
+    exec_observer_plugin(tls, cnx, obs, pp->outputv);
+    *(pp->outputv) = cnx->protop_op_output;
     cnx->current_plugin = previous_plugin;
-    return status;
+    return cnx->protop_op_output;
 }
 
-void exec_observer_plugin(ptls_context_t *cnx, observer_node_t *obs, proto_op_arg_t *outputv) {
+void exec_observer_plugin(ptls_t *tls, ptls_context_t *cnx, observer_node_t *obs, proto_op_arg_t *outputv) {
     while (obs)
     {
-        exec_pluglet(cnx, obs->pluglet, outputv);
+        exec_pluglet(tls, cnx, obs->pluglet, outputv);
         obs = obs->next;
     }
 }
 
-void exec_pluglet(ptls_context_t *cnx, pluglet_t *pluglet, proto_op_arg_t *outputv) {
+void exec_pluglet(ptls_t *tls, ptls_context_t *cnx, pluglet_t *pluglet, proto_op_arg_t *outputv) {
     plugin_t *p = pluglet->plugin;
     // TODO IF jit
     // How to not override the ouptput of core
     cnx->current_plugin = pluglet->plugin;
-    *(outputv) = ubpf_exec(pluglet->vm, p->memory, PLUGIN_MEMORY);
+    *(outputv) = ubpf_exec_with_arg(pluglet->vm, tls, p->memory, PLUGIN_MEMORY);
 }
 
 /**
@@ -554,7 +575,7 @@ void *get_opaque_data(ptls_context_t *cnx, opaque_id_t op_id, size_t size, bool 
             fprintf(stderr, "Opaque data size does not correspond %s:%d\n", __FILE__, __LINE__);
             return NULL;
         }
-        *(allocate) = false;
+        *(allocate) = 0;
         return data.start_ptr;
     }
     data.start_ptr = my_malloc(cnx, size);
@@ -563,7 +584,9 @@ void *get_opaque_data(ptls_context_t *cnx, opaque_id_t op_id, size_t size, bool 
         fprintf(stderr, "Failed to allocate memory with my malloc %s: %d\n", __FILE__, __LINE__);
         return NULL;
     }
-    *(allocate) = true;
+    *(allocate) = 1;
+    data.size = size;
+    plugin->opaque_metas[op_id] = data;
     return data.start_ptr;
 
 }

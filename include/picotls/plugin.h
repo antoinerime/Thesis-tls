@@ -11,6 +11,7 @@
 #include "protoop.h"
 #include "picotls_struct.h"
 #include "ubpf/vm/inc/ubpf.h"
+#include <picotls/getset.h>
 
 #define NO_PARAM (param_id_t) -1
 

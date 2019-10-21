@@ -53,13 +53,14 @@ typedef enum ptls_ctx_field {
     CTX_UPDT_TRAFFIC_KEY,
     CTX_DECOMPRESS_CERT,
     CTX_UPDT_ESNI_KEY,
-    CTX_PROTO_OP_INPUT
+    CTX_PROTO_OP_INPUT,
+    CTX_PROTO_OP_OUTPUT
 }ptls_ctx_field ;
 
-extern uint64_t inline ptls_get_field(ptls_t *tls, enum ptls_field field);
-extern void inline ptls_set_field(ptls_t *tls, enum ptls_field field, uint64_t value);
+extern uint64_t ptls_get_field(ptls_t *tls, enum ptls_field field);
+extern void ptls_set_field(ptls_t *tls, enum ptls_field field, uint64_t value);
 
-uint64_t inline ptls_get_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint16_t param);
-void inline *ptls_set_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint64_t value, uint16_t param);
+uint64_t ptls_get_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint16_t param);
+void ptls_set_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint64_t value, uint16_t param);
 
 #endif //PICOTLS_GETSET_H

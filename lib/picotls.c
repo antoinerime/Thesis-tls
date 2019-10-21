@@ -640,9 +640,14 @@ static int aead_decrypt(struct st_ptls_traffic_protection_t *ctx, void *output, 
         ptls_buffer_push_block((buf), 2, block);                                                                                   \
     } while (0)
 
-static int buffer_push_encrypted_records(ptls_buffer_t *buf, uint8_t type, const uint8_t *src, size_t len,
-                                         struct st_ptls_traffic_protection_t *enc)
+static proto_op_arg_t buffer_push_encrypted_records(ptls_t *tls)
 {
+    ptls_context_t *ctx = ptls_get_context(tls);
+    ptls_buffer_t *buf = (ptls_buffer_t *) ctx->proto_op_inputv[0];
+    uint8_t type = (uint8_t ) ctx->proto_op_inputv[1];
+    uint8_t *src = (uint8_t  *)ctx->proto_op_inputv[2];
+    size_t len = (size_t) ctx->proto_op_inputv[3];
+    struct st_ptls_traffic_protection_t *enc = (struct st_ptls_traffic_protection_t *) ctx->proto_op_inputv[4];
     int ret = 0;
 
     while (len != 0) {
@@ -662,7 +667,7 @@ Exit:
     return ret;
 }
 
-static int buffer_encrypt_record(ptls_buffer_t *buf, size_t rec_start, struct st_ptls_traffic_protection_t *enc)
+static int buffer_encrypt_record(ptls_t *tls, ptls_buffer_t *buf, size_t rec_start, struct st_ptls_traffic_protection_t *enc)
 {
     size_t bodylen = buf->off - rec_start - 5;
     uint8_t *tmpbuf, type = buf->base[rec_start];
@@ -692,7 +697,10 @@ static int buffer_encrypt_record(ptls_buffer_t *buf, size_t rec_start, struct st
     buf->off = rec_start;
 
     /* push encrypted records */
-    ret = buffer_push_encrypted_records(buf, type, tmpbuf, bodylen, enc);
+    // ret = buffer_push_encrypted_records(buf, type, tmpbuf, bodylen, enc);
+    proto_op_arg_t output = 0;
+    PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_BUFFER_PUSH_ENCRYPTED_RECORDS, &output, buf, type, tmpbuf, bodylen, enc);
+    ret = output;
 
 Exit:
     if (tmpbuf != NULL) {
@@ -714,13 +722,13 @@ Exit:
     return ret;
 }
 
-static int commit_record_message(ptls_message_emitter_t *_self)
+static int commit_record_message(ptls_t *tls, ptls_message_emitter_t *_self)
 {
     struct st_ptls_record_message_emitter_t *self = (void *)_self;
     int ret;
 
     if (self->super.enc->aead != NULL) {
-        ret = buffer_encrypt_record(self->super.buf, self->rec_start, self->super.enc);
+        ret = buffer_encrypt_record(tls, self->super.buf, self->rec_start, self->super.enc);
     } else {
         /* TODO allow CH,SH,HRR above 16KB */
         size_t sz = self->super.buf->off - self->rec_start - 5;
@@ -1351,7 +1359,7 @@ static int send_finished(ptls_t *tls, ptls_message_emitter_t *emitter)
 {
     int ret;
 
-    ptls_push_message(emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_FINISHED, {
+    ptls_push_message(tls, emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_FINISHED, {
         if ((ret = ptls_buffer_reserve(emitter->buf, tls->key_schedule->hashes[0].algo->digest_size)) != 0)
             goto Exit;
         if ((ret = calc_verify_data(emitter->buf->base + emitter->buf->off, tls->key_schedule,
@@ -1404,7 +1412,7 @@ static int send_session_ticket(ptls_t *tls, ptls_message_emitter_t *emitter)
         goto Exit;
 
     /* encrypt and send */
-    ptls_push_message(emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_NEW_SESSION_TICKET, {
+    ptls_push_message(tls, emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_NEW_SESSION_TICKET, {
         ptls_buffer_push32(emitter->buf, tls->ctx->ticket_lifetime);
         ptls_buffer_push32(emitter->buf, ticket_age_add);
         ptls_buffer_push_block(emitter->buf, 1, {});
@@ -1911,7 +1919,7 @@ static int send_client_hello(ptls_t *tls, ptls_message_emitter_t *emitter, ptls_
     }
 
     msghash_off = emitter->buf->off + emitter->record_header_length;
-    ptls_push_message(emitter, NULL, PTLS_HANDSHAKE_TYPE_CLIENT_HELLO, {
+    ptls_push_message(tls, emitter, NULL, PTLS_HANDSHAKE_TYPE_CLIENT_HELLO, {
         ptls_buffer_t *sendbuf = emitter->buf;
         /* legacy_version */
         ptls_buffer_push16(sendbuf, 0x0303);
@@ -2540,7 +2548,7 @@ static int default_emit_certificate_cb(ptls_emit_certificate_t *_self, ptls_t *t
 {
     int ret;
 
-    ptls_push_message(emitter, key_sched, PTLS_HANDSHAKE_TYPE_CERTIFICATE, {
+    ptls_push_message(tls, emitter, key_sched, PTLS_HANDSHAKE_TYPE_CERTIFICATE, {
         if ((ret = ptls_build_certificate_message(emitter->buf, context, tls->ctx->certificates.list, tls->ctx->certificates.count,
                                                   ptls_iovec_init(NULL, 0))) != 0)
             goto Exit;
@@ -2571,7 +2579,7 @@ static int send_certificate_and_certificate_verify(ptls_t *tls, ptls_message_emi
 
     /* build and send CertificateVerify */
     if (tls->ctx->sign_certificate != NULL) {
-        ptls_push_message(emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_CERTIFICATE_VERIFY, {
+        ptls_push_message(tls, emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_CERTIFICATE_VERIFY, {
             ptls_buffer_t *sendbuf = emitter->buf;
             size_t algo_off = sendbuf->off;
             ptls_buffer_push16(sendbuf, 0); /* filled in later */
@@ -2835,7 +2843,7 @@ static int client_handle_finished(ptls_t *tls, ptls_message_emitter_t *emitter, 
     if (tls->pending_handshake_secret != NULL) {
         assert(tls->traffic_protection.enc.aead != NULL || tls->ctx->update_traffic_key != NULL);
         if (tls->client.using_early_data && !tls->ctx->omit_end_of_early_data)
-            ptls_push_message(emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_END_OF_EARLY_DATA, {});
+            ptls_push_message(tls, emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_END_OF_EARLY_DATA, {});
         tls->client.using_early_data = 0;
         if ((ret = commission_handshake_secret(tls)) != 0)
             goto Exit;
@@ -3531,7 +3539,7 @@ static int server_handle_hello(ptls_t *tls, ptls_message_emitter_t *emitter, ptl
                                ptls_handshake_properties_t *properties)
 {
 #define EMIT_SERVER_HELLO(sched, fill_rand, extensions)                                                                            \
-    ptls_push_message(emitter, (sched), PTLS_HANDSHAKE_TYPE_SERVER_HELLO, {                                                        \
+    ptls_push_message(tls, emitter, (sched), PTLS_HANDSHAKE_TYPE_SERVER_HELLO, {                                                        \
         ptls_buffer_push16(emitter->buf, 0x0303 /* legacy version */);                                                             \
         if ((ret = ptls_buffer_reserve(emitter->buf, PTLS_HELLO_RANDOM_SIZE)) != 0)                                                \
             goto Exit;                                                                                                             \
@@ -3862,7 +3870,7 @@ static int server_handle_hello(ptls_t *tls, ptls_message_emitter_t *emitter, ptl
     }
 
     /* send EncryptedExtensions */
-    ptls_push_message(emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_ENCRYPTED_EXTENSIONS, {
+    ptls_push_message(tls, emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_ENCRYPTED_EXTENSIONS, {
         ptls_buffer_t *sendbuf = emitter->buf;
         ptls_buffer_push_block(sendbuf, 2, {
             if (tls->esni != NULL) {
@@ -3898,7 +3906,7 @@ static int server_handle_hello(ptls_t *tls, ptls_message_emitter_t *emitter, ptl
     if (mode == HANDSHAKE_MODE_FULL) {
         /* send certificate request if client authentication is activated */
         if (tls->ctx->require_client_authentication) {
-            ptls_push_message(emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_CERTIFICATE_REQUEST, {
+            ptls_push_message(tls, emitter, tls->key_schedule, PTLS_HANDSHAKE_TYPE_CERTIFICATE_REQUEST, {
                 /* certificate_request_context, this field SHALL be zero length, unless the certificate
                  * request is used for post-handshake authentication.
                  */
@@ -4137,8 +4145,7 @@ ptls_t *ptls_new(ptls_context_t *ctx, int is_server)
         return NULL;
 
     update_open_count(ctx, 1);
-    if (!ctx->ops)
-        picotls_register_noparam_proto_op(ctx);
+    picotls_register_noparam_proto_op(ctx);
     *tls = (ptls_t){ctx};
     tls->is_server = is_server;
     tls->send_change_cipher_spec = ctx->send_change_cipher_spec;
@@ -4245,7 +4252,7 @@ ptls_context_t *ptls_get_context(ptls_t *tls)
     return tls->ctx;
 }
 
-uint64_t inline ptls_get_field(ptls_t *tls, enum ptls_field field)
+uint64_t ptls_get_field(ptls_t *tls, enum ptls_field field)
 {
     switch (field) {
         case PTLS_CTX:
@@ -4283,7 +4290,7 @@ uint64_t inline ptls_get_field(ptls_t *tls, enum ptls_field field)
     }
 }
 
-void inline ptls_set_field(ptls_t *tls, enum ptls_field field, uint64_t value)
+void ptls_set_field(ptls_t *tls, enum ptls_field field, uint64_t value)
 {
     switch(field)
     {
@@ -4851,7 +4858,7 @@ static int update_send_key(ptls_t *tls, ptls_buffer_t *_sendbuf, int request_upd
     init_record_message_emmitter(tls, &emitter, _sendbuf);
     size_t sendbuf_orig_off = emitter.super.buf->off;
 
-    ptls_push_message(&emitter.super, NULL, PTLS_HANDSHAKE_TYPE_KEY_UPDATE,
+    ptls_push_message(tls, &emitter.super, NULL, PTLS_HANDSHAKE_TYPE_KEY_UPDATE,
                       { ptls_buffer_push(emitter.super.buf, !!request_update); });
     if ((ret = update_traffic_key(tls, 1)) != 0)
         goto Exit;
@@ -4880,8 +4887,10 @@ int ptls_send(ptls_t *tls, ptls_buffer_t *sendbuf, const void *input, size_t inl
         tls->needs_key_update = 0;
         tls->key_update_send_request = 0;
     }
-
-    return buffer_push_encrypted_records(sendbuf, PTLS_CONTENT_TYPE_APPDATA, input, inlen, &tls->traffic_protection.enc);
+    proto_op_arg_t output = 0;
+    PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_BUFFER_PUSH_ENCRYPTED_RECORDS, &output, sendbuf, PTLS_CONTENT_TYPE_APPDATA, input, inlen, &tls->traffic_protection.enc);
+    // return buffer_push_encrypted_records(sendbuf, PTLS_CONTENT_TYPE_APPDATA, input, inlen, &tls->traffic_protection.enc);
+    return output;
 }
 
 int ptls_update_key(ptls_t *tls, int request_update)
@@ -4905,7 +4914,7 @@ int ptls_send_alert(ptls_t *tls, ptls_buffer_t *sendbuf, uint8_t level, uint8_t 
     buffer_push_record(sendbuf, PTLS_CONTENT_TYPE_ALERT, { ptls_buffer_push(sendbuf, level, description); });
     /* encrypt the alert if we have the encryption keys, unless when it is the early data key */
     if (tls->traffic_protection.enc.aead != NULL && !(tls->state <= PTLS_STATE_CLIENT_EXPECT_FINISHED)) {
-        if ((ret = buffer_encrypt_record(sendbuf, rec_start, &tls->traffic_protection.enc)) != 0)
+        if ((ret = buffer_encrypt_record(tls, sendbuf, rec_start, &tls->traffic_protection.enc)) != 0)
             goto Exit;
     }
 
@@ -4921,7 +4930,7 @@ int ptls_send_hello_world(ptls_t *tls, ptls_buffer_t *sendbuf, const void *input
     buffer_push_record(sendbuf, PTLS_CONTENT_TYPE_HELLO_WORLD, {ptls_buffer__do_pushv(sendbuf, input, len);});
     /* encrypt the alert if we have the encryption keys, unless when it is the early data key */
     if (tls->traffic_protection.enc.aead != NULL && !(tls->state <= PTLS_STATE_CLIENT_EXPECT_FINISHED)) {
-        if ((ret = buffer_encrypt_record(sendbuf, rec_start, &tls->traffic_protection.enc)) != 0)
+        if ((ret = buffer_encrypt_record(tls, sendbuf, rec_start, &tls->traffic_protection.enc)) != 0)
             goto Exit;
     }
     /* TODO If no aead defined should we send handshake failure ? */
@@ -5274,7 +5283,7 @@ static int begin_raw_message(ptls_message_emitter_t *_self)
     return 0;
 }
 
-static int commit_raw_message(ptls_message_emitter_t *_self)
+static int commit_raw_message(ptls_t *tls, ptls_message_emitter_t *_self)
 {
     struct st_ptls_raw_message_emitter_t *self = (void *)_self;
     size_t epoch;
@@ -5503,4 +5512,5 @@ char *ptls_hexdump(char *buf, const void *_src, size_t len)
 void picotls_register_noparam_proto_op(ptls_context_t *cnx)
 {
     register_noparam_proto_op(cnx, &PROTOOP_NO_PARAM_HANDLE_INPUT, &handle_input);
+    register_noparam_proto_op(cnx, &PROTOOP_NO_PARAM_BUFFER_PUSH_ENCRYPTED_RECORDS, &buffer_push_encrypted_records);
 }

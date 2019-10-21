@@ -5,7 +5,7 @@
 #include "picotls/getset.h"
 
 
-uint64_t inline ptls_get_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint16_t param)
+uint64_t ptls_get_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint16_t param)
 {
     ptls_context_t * ctx = (ptls_context_t *) ptls_get_field(tls, PTLS_CTX);
     switch (field)
@@ -58,11 +58,13 @@ uint64_t inline ptls_get_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint1
             return (uint64_t) ctx->update_esni_key;
         case CTX_PROTO_OP_INPUT:
             return (ctx->proto_op_inputv[param]);
+        case CTX_PROTO_OP_OUTPUT:
+            return (ctx->protop_op_output);
         default:
             return 0;
     }
 }
-void inline *ptls_set_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint64_t value, uint16_t param)
+void ptls_set_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint64_t value, uint16_t param)
 {
     ptls_context_t * ctx = (ptls_context_t *) ptls_get_field(tls, PTLS_CTX);
     switch (field) {
@@ -137,6 +139,9 @@ void inline *ptls_set_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint64_t
             break;
         case CTX_PROTO_OP_INPUT:
             ctx->proto_op_inputv[param] = value;
+            break;
+        case CTX_PROTO_OP_OUTPUT:
+            ctx->protop_op_output = value;
             break;
         default:
             break;

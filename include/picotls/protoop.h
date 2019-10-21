@@ -31,4 +31,9 @@ extern proto_op_id_t PROTOOP_NOPARAM_AEAD_DECRYPT;
  */
 #define PROTOOPID_NO_PARAM_HANDLE_INPUT "handle_input"
 extern proto_op_id_t PROTOOP_NO_PARAM_HANDLE_INPUT;
+/**
+ *
+ */
+#define PROTOOPID_NO_PARAM_BUFFER_PUSH_ENCRYPTED_RECORDS "buffer_push_encrypted_records"
+extern proto_op_id_t PROTOOP_NO_PARAM_BUFFER_PUSH_ENCRYPTED_RECORDS;
 #endif //PICOTLS_PROTOOP_H
