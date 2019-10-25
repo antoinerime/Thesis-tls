@@ -5,7 +5,7 @@
 #ifndef PICOTLS_GETSET_H
 #define PICOTLS_GETSET_H
 
-#include "picotls.h"
+// #include "picotls.h"
 #include "picotls/picotls_struct.h"
 // TODO What to do with anonymous struct
 typedef enum ptls_field {
@@ -57,10 +57,33 @@ typedef enum ptls_ctx_field {
     CTX_PROTO_OP_OUTPUT
 }ptls_ctx_field ;
 
-extern uint64_t ptls_get_field(ptls_t *tls, enum ptls_field field);
-extern void ptls_set_field(ptls_t *tls, enum ptls_field field, uint64_t value);
+typedef enum ptls_buff_field {
+    BUFF_BASE,
+    BUFF_CAPACITY,
+    BUFF_OFF,
+    BUFF_IS_ALLOCATED
+}ptls_buff_field;
 
-uint64_t ptls_get_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint16_t param);
-void ptls_set_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint64_t value, uint16_t param);
+typedef enum ptls_traffic_protection_field {
+    PROTECTION_EPOCH,
+    PROTECTION_SEQ,
+    PROTECTION_AEAD,
+    PROTECTION_ALGO_TAG_SIZE,
+    PROTECTION_ALGO_KEY_SIZE,
+    PROTECTION_ALGO_IV_SIZE,
+    PROTECTION_CTX_SIZE
+}ptls_traffic_protection_field ;
+
+extern uint64_t ptls_get(ptls_t *tls, enum ptls_field field);
+extern void ptls_set(ptls_t *tls, enum ptls_field field, uint64_t value);
+
+uint64_t ptls_get_ctx(ptls_t *tls, enum ptls_ctx_field field, uint16_t param);
+void ptls_set_ctx(ptls_t *tls, enum ptls_ctx_field field, uint64_t value, uint16_t param);
+
+uint64_t ptls_get_buff(ptls_buffer_t *buff, enum ptls_buff_field field);
+void ptls_set_buff(ptls_buffer_t *buff, enum ptls_buff_field field, uint64_t value, uint16_t param);
+
+extern uint64_t ptls_get_protection(struct st_ptls_traffic_protection_t *enc, enum ptls_traffic_protection_field);
+extern void ptls_set_protection(struct st_ptls_traffic_protection_t *enc, enum ptls_traffic_protection_field, uint64_t value);
 
 #endif //PICOTLS_GETSET_H

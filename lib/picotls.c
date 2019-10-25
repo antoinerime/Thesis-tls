@@ -606,7 +606,7 @@ static void build_aad(uint8_t aad[5], size_t reclen)
     aad[4] = (uint8_t)reclen;
 }
 
-static size_t aead_encrypt(struct st_ptls_traffic_protection_t *ctx, void *output, const void *input, size_t inlen,
+size_t aead_encrypt(struct st_ptls_traffic_protection_t *ctx, void *output, const void *input, size_t inlen,
                            uint8_t content_type)
 {
     uint8_t aad[5];
@@ -621,7 +621,7 @@ static size_t aead_encrypt(struct st_ptls_traffic_protection_t *ctx, void *outpu
     return off;
 }
 
-static int aead_decrypt(struct st_ptls_traffic_protection_t *ctx, void *output, size_t *outlen, const void *input, size_t inlen)
+int aead_decrypt(struct st_ptls_traffic_protection_t *ctx, void *output, size_t *outlen, const void *input, size_t inlen)
 {
     uint8_t aad[5];
 
@@ -4255,7 +4255,7 @@ ptls_context_t *ptls_get_context(ptls_t *tls)
     return tls->ctx;
 }
 
-uint64_t ptls_get_field(ptls_t *tls, enum ptls_field field)
+uint64_t ptls_get(ptls_t *tls, enum ptls_field field)
 {
     switch (field) {
         case PTLS_CTX:
@@ -4293,7 +4293,7 @@ uint64_t ptls_get_field(ptls_t *tls, enum ptls_field field)
     }
 }
 
-void ptls_set_field(ptls_t *tls, enum ptls_field field, uint64_t value)
+void ptls_set(ptls_t *tls, enum ptls_field field, uint64_t value)
 {
     switch(field)
     {
@@ -4342,6 +4342,43 @@ void ptls_set_field(ptls_t *tls, enum ptls_field field, uint64_t value)
         default:
             fprintf(stderr, "Unknown field in ptls set field\n");
             return;
+    }
+}
+
+uint64_t ptls_get_protection(struct st_ptls_traffic_protection_t *enc, enum ptls_traffic_protection_field field)
+{
+        switch (field)
+        {
+            case PROTECTION_EPOCH:
+                return enc->epoch;
+            case PROTECTION_SEQ:
+                return enc->seq;
+            case PROTECTION_ALGO_IV_SIZE:
+                return enc->aead->algo->iv_size;
+            case PROTECTION_ALGO_KEY_SIZE:
+                return enc->aead->algo->key_size;
+            case PROTECTION_ALGO_TAG_SIZE:
+                return enc->aead->algo->tag_size;
+            case PROTECTION_CTX_SIZE:
+                return enc->aead->algo->context_size;
+            case PROTECTION_AEAD:
+                return (uint64_t) enc->aead;
+            default:
+                return 0;
+        }
+}
+void ptls_set_protection(struct st_ptls_traffic_protection_t *enc, enum ptls_traffic_protection_field field, uint64_t value)
+{
+    switch (field)
+    {
+    case PROTECTION_EPOCH:
+        enc->epoch = value;
+        break;
+    case PROTECTION_SEQ:
+        enc->seq = value;
+        break;
+    default:
+        break;
     }
 }
 

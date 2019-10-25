@@ -395,6 +395,18 @@ void ptls_aead_free(ptls_aead_context_t *ctx);
 /**
  *
  */
+int aead_decrypt(struct st_ptls_traffic_protection_t *ctx, void *output, size_t *outlen, const void *input, size_t inlen);
+/**
+ *
+ * @param ctx
+ * @param output
+ * @param input
+ * @param inlen
+ * @param seq
+ * @param aad
+ * @param aadlen
+ * @return
+ */
 size_t ptls_aead_encrypt(ptls_aead_context_t *ctx, void *output, const void *input, size_t inlen, uint64_t seq, const void *aad,
                          size_t aadlen);
 /**

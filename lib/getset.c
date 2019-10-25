@@ -5,9 +5,9 @@
 #include "picotls/getset.h"
 
 
-uint64_t ptls_get_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint16_t param)
+uint64_t ptls_get_ctx(ptls_t *tls, enum ptls_ctx_field field, uint16_t param)
 {
-    ptls_context_t * ctx = (ptls_context_t *) ptls_get_field(tls, PTLS_CTX);
+    ptls_context_t * ctx = (ptls_context_t *) ptls_get(tls, PTLS_CTX);
     switch (field)
     {
         case CTX_RAND_BYTES:
@@ -64,9 +64,8 @@ uint64_t ptls_get_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint16_t par
             return 0;
     }
 }
-void ptls_set_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint64_t value, uint16_t param)
-{
-    ptls_context_t * ctx = (ptls_context_t *) ptls_get_field(tls, PTLS_CTX);
+void ptls_set_ctx(ptls_t *tls, enum ptls_ctx_field field, uint64_t value, uint16_t param) {
+    ptls_context_t *ctx = (ptls_context_t *) ptls_get(tls, PTLS_CTX);
     switch (field) {
         case CTX_RAND_BYTES:
             ctx->random_bytes = (void (*)(void *, size_t)) value;
@@ -142,6 +141,43 @@ void ptls_set_ctx_field(ptls_t *tls, enum ptls_ctx_field field, uint64_t value, 
             break;
         case CTX_PROTO_OP_OUTPUT:
             ctx->protop_op_output = value;
+            break;
+        default:
+            break;
+    }
+}
+
+
+uint64_t ptls_get_buff(ptls_buffer_t *buff, enum ptls_buff_field field)
+{
+    switch (field)
+    {
+        case BUFF_BASE:
+            return (uint64_t) buff->base;
+        case BUFF_CAPACITY:
+            return buff->capacity;
+        case BUFF_OFF:
+            return buff->off;
+        case BUFF_IS_ALLOCATED:
+            return buff->is_allocated;
+        default:
+            return 0;
+    }
+}
+
+void ptls_set_buff(ptls_buffer_t *buff, enum ptls_buff_field field, uint64_t value, uint16_t param) {
+    switch (field) {
+        case BUFF_BASE:
+            buff->base[param] = (uint8_t) value;
+            break;
+        case BUFF_CAPACITY:
+            buff->capacity = value;
+            break;
+        case BUFF_OFF:
+            buff->off = value;
+            break;
+        case BUFF_IS_ALLOCATED:
+            buff->is_allocated = value;
             break;
         default:
             break;

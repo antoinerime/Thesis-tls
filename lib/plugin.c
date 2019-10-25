@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
+#include <stdlib.h>
 #include <elf.h>
 #include <picotls/memcpy.h>
 #include "picotls/plugin.h"
@@ -49,7 +50,7 @@ int ubpf_register_basic_functions(struct ubpf_vm *vm)
 int ret = 0;
 ret += ubpf_register(vm, 0x01, "fprintf", &fprintf);
 ret += ubpf_register(vm, 0x02, "help_printf_str", &help_printf_str);
-ret += ubpf_register(vm, 0x10, "help_printf_int", &help_printf_int);
+ret += ubpf_register(vm, 0x20, "help_printf_int", &help_printf_int);
 
 ret += ubpf_register(vm, 0x03, "my_malloc", &my_malloc);
 ret += ubpf_register(vm, 0x04, "my_free", &my_free);
@@ -58,10 +59,25 @@ ret += ubpf_register(vm, 0x06, "my_memcpy", &my_memcpy);
 ret += ubpf_register(vm, 0x07, "my_memset", &my_memset);
 
 ret += ubpf_register(vm, 0x08, "get_opaque_data", &get_opaque_data);
-ret += ubpf_register(vm, 0x09, "ptls_get_field", &ptls_get_field);
-ret += ubpf_register(vm, 0x0a, "ptls_set_field", &ptls_set_field);
-ret += ubpf_register(vm, 0x0b, "ptls_get_ctx_field", &ptls_get_ctx_field);
-ret += ubpf_register(vm, 0x0c, "ptls_set_ctx_field", &ptls_set_ctx_field);
+ret += ubpf_register(vm, 0x09, "ptls_get", &ptls_get);
+ret += ubpf_register(vm, 0x0a, "ptls_set", &ptls_set);
+ret += ubpf_register(vm, 0x0b, "ptls_get_ctx", &ptls_get_ctx);
+ret += ubpf_register(vm, 0x0c, "ptls_set_ctx", &ptls_set_ctx);
+ret += ubpf_register(vm, 0x0d, "run_plugin_proto_op_internal", &run_plugin_proto_op_internal);
+ret += ubpf_register(vm, 0x0e, "ptls_buffer_reserve", &ptls_buffer_reserve);
+ret += ubpf_register(vm, 0x10, "aead_decrypt", &aead_decrypt);
+ret += ubpf_register(vm, 0x11, "ptls_buffer__do_pushv", &ptls_buffer__do_pushv);
+ret += ubpf_register(vm , 0x12, "ptls_get_buff", &ptls_get_buff);
+ret += ubpf_register(vm, 0x13, "ptls_set_buff", &ptls_set_buff);
+ret += ubpf_register(vm, 0x14, "ptls_set_protection", &ptls_set_protection);
+ret += ubpf_register(vm, 0x15, "ptls_get_protection", &ptls_get_protection);
+ret += ubpf_register(vm, 0x16, "ptls_buffer_reserve", &ptls_buffer_reserve);
+ret += ubpf_register(vm, 0x17, "ptls_aead_encrypt_init", &ptls_aead_encrypt_init);
+ret += ubpf_register(vm, 0x18, "ptls_aead_encrypt_update", &ptls_aead_encrypt_update);
+ret += ubpf_register(vm, 0x19, "ptls_aead_encrypt_final", &ptls_aead_encrypt_final);
+
+
+ret += ubpf_register(vm, 0x0e, "rand", &rand);
 
 return ret;
 }
@@ -306,13 +322,13 @@ bool register_plugin(ptls_context_t *cnx, char *fname, proto_op_id_t *pid, proto
 }
 
 bool parse_line(char *line, char *dir_name, char **code_file_name, proto_op_id_t **pid, proto_op_type *type) {
-    char pid_name[20];
+    char pid_name[50];
     char type_name[10];
-    char tmp_code_filename[20];
+    char tmp_code_filename[50];
     // TODO !!!!!!!!!!!!!!!!! Check maximum size !!!!!!!!!!!
-    strcpy(pid_name, strsep(&line, " "));
-    strcpy(type_name, strsep(&line, " "));
-    strcpy(tmp_code_filename, strsep(&line, " "));
+    strncpy(pid_name, strsep(&line, " "), 50);
+    strncpy(type_name, strsep(&line, " "), 10);
+    strncpy(tmp_code_filename, strsep(&line, " "), 50);
     if (strsep(&line, " ") != NULL)
     {
         fprintf(stderr, "Wrong syntax for plugin file, should be: [proto_op_name] [proto_op_type] [code_filename]\n");
@@ -494,14 +510,14 @@ proto_op_arg_t run_plugin_proto_op_internal(const proto_op_params_t *pp, ptls_t 
     cnx->proto_op_inputv = pp->inputv;
     observer_node_t *obs = popst->pre;
     exec_observer_plugin(tls, cnx, obs, pp->outputv);
-    if (popst->replace)
-        exec_pluglet(tls, cnx, obs->pluglet, pp->outputv);
+    if (popst->replace) {
+        exec_pluglet(tls, cnx, popst->replace, pp->outputv);
+    }
     else
     {
         // We are not in the context of a plugin if the we execute the core code
         cnx->current_plugin = NULL;
         cnx->protop_op_output = popst->core(tls);
-        memcpy(pp->outputv, &status, sizeof(proto_op_arg_t));
     }
     obs = popst->post;
     exec_observer_plugin(tls, cnx, obs, pp->outputv);
@@ -522,7 +538,7 @@ void exec_pluglet(ptls_t *tls, ptls_context_t *cnx, pluglet_t *pluglet, proto_op
     plugin_t *p = pluglet->plugin;
     // TODO IF jit
     // How to not override the ouptput of core
-    cnx->current_plugin = pluglet->plugin;
+    cnx->current_plugin = p;
     *(outputv) = ubpf_exec_with_arg(pluglet->vm, tls, p->memory, PLUGIN_MEMORY);
 }
 
