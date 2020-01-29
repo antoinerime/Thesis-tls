@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <elf.h>
 #include <picotls/memcpy.h>
+#include <netlink/netlink.h>
 #include "picotls/plugin.h"
 #include "picotls/memory.h"
 #include "picotls.h"
@@ -75,6 +76,8 @@ ret += ubpf_register(vm, 0x16, "ptls_buffer_reserve", &ptls_buffer_reserve);
 ret += ubpf_register(vm, 0x17, "ptls_aead_encrypt_init", &ptls_aead_encrypt_init);
 ret += ubpf_register(vm, 0x18, "ptls_aead_encrypt_update", &ptls_aead_encrypt_update);
 ret += ubpf_register(vm, 0x19, "ptls_aead_encrypt_final", &ptls_aead_encrypt_final);
+
+ret += ubpf_register(vm, 0x20, "rtnl_qdisc_tbf_get_rate_cell", &nl_socket_alloc);
 
 
 ret += ubpf_register(vm, 0x0e, "rand", &rand);
@@ -159,7 +162,7 @@ int ubpf_read_and_register_plugins(ptls_context_t *ctx, char * plugin_name)
         init_memory_management(plugin);
         HASH_ADD_STR(ctx->plugin, name, plugin);
     }
-    return ok;
+    return ok == 0;
 }
 
 void abort_plugin(ptls_context_t *cnx, pluglet_stack_t *top) {
@@ -212,8 +215,6 @@ int register_pluglet(proto_op_param_struct_t *param, proto_op_type type, char *f
 
     int ret;
     ret = load_pluglet_code(fname, pluglet);
-    if (ret != 0)
-        return ret;
     switch (type)
     {
         case REPLACE:
@@ -433,7 +434,7 @@ void register_noparam_proto_op(ptls_context_t *cnx, proto_op_id_t *proto_id, pro
     HASH_FIND_PID(cnx->ops, &(proto_id->hash), proto_op);
     if (proto_op)
     {
-        // fprintf(stderr, "Protocol operation already in hashmap\n");
+        // fprintf(stderr, "Protocol operation %s already in hashmap\n", proto_id->id);
         return;
     }
 
@@ -449,7 +450,7 @@ void register_noparam_proto_op(ptls_context_t *cnx, proto_op_id_t *proto_id, pro
         fprintf(stderr, "Failed to allocate memory in %s, line %d\n", __FILE__, __LINE__);
         return;
     }
-    size_t str_id_len = sizeof(proto_id->id) + 1;
+    size_t str_id_len = strnlen(proto_id->id, 50) + 1;
     id->id = (char *) malloc(sizeof(char) * str_id_len);
     if (!id->id)
     {
@@ -493,7 +494,7 @@ proto_op_arg_t run_plugin_proto_op_internal(const proto_op_params_t *pp, ptls_t 
     HASH_FIND_PID(cnx->ops, &(pp->id->hash), post);
     if (!post)
     {
-        fprintf(stderr, "Proto opertation %s doesn't exist at %s:%d\n", pp->id->id, __FILE__, __LINE__);
+        fprintf(stderr, "Proto operation %s doesn't exist at %s:%d\n", pp->id->id, __FILE__, __LINE__);
         exit(-1);
     }
     proto_op_param_struct_t *popst;

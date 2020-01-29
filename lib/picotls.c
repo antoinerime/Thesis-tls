@@ -4145,7 +4145,8 @@ ptls_t *ptls_new(ptls_context_t *ctx, int is_server)
         return NULL;
 
     update_open_count(ctx, 1);
-    ctx->ops = NULL;
+    // TODO
+    // ctx->ops = NULL;
     ctx->plugin = NULL;
     picotls_register_noparam_proto_op(ctx);
     *tls = (ptls_t){ctx};

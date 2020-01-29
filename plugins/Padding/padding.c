@@ -90,13 +90,15 @@ int padding(ptls_t *tls)
 
             ptls_aead_context_t * aead = (ptls_aead_context_t *) ptls_get_protection(enc, PROTECTION_AEAD);
             uint64_t seq = (uint64_t) ptls_get_protection(enc, PROTECTION_SEQ);
-
-            ptls_aead_encrypt_init(aead, seq++, aad, sizeof(aad));
+            seq ++;
+            ptls_aead_encrypt_init(aead, seq, aad, sizeof(aad));
             ptls_set_protection(enc, PROTECTION_SEQ, seq);
             tmp_off += ptls_aead_encrypt_update(aead, ((uint8_t *)base) + tmp_off, src, chunk_size);
             tmp_off += ptls_aead_encrypt_update(aead, ((uint8_t *)base) + tmp_off, &type, 1);
             tmp_off += ptls_aead_encrypt_update(aead, ((uint8_t *)base) + tmp_off, zeros, padding);
             tmp_off += ptls_aead_encrypt_final(aead, ((uint8_t *)base) + tmp_off);
+            help_printf_int(chunk_size);
+            help_printf_int(padding);
             ptls_set_buff(buf, BUFF_OFF, tmp_off, 0);
         });
         src += chunk_size;

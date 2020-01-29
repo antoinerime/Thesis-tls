@@ -92,7 +92,6 @@ int ptls_buffer_push_asn1_ubigint(ptls_buffer_t *buf, const void *bignum, size_t
 /**
  *  send a hello world record
  */
-int ptls_send_hello_world(ptls_t *tls, ptls_buffer_t *sendbuf, const void* input, size_t len);
 
 #define ptls_buffer_pushv(buf, src, len)                                                                                           \
     do {                                                                                                                           \

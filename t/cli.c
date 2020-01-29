@@ -65,13 +65,21 @@ static void shift_buffer(ptls_buffer_t *buf, size_t delta)
     }
 }
 
-static int handle_connection(int sockfd, ptls_context_t *ctx, const char *server_name, const char *input_file,
-                             ptls_handshake_properties_t *hsprop, int request_key_update, int keep_sender_open, bool isServer,
-                             char plugins[10][PLUGIN_FNAME_MAX_SIZE], int number_of_plugins)
+static proto_op_arg_t handle_connection(ptls_t *tls)
 {
-    ptls_t *tls = ptls_new(ctx, server_name == NULL);
-    for (int i=0; i<number_of_plugins; i++)
-        ubpf_read_and_register_plugins(ctx, plugins[i]);
+    /* Get argument */
+    ptls_context_t *ctx = ptls_get_context(tls);
+    int sockfd = (int) ctx->proto_op_inputv[0];
+    const char *server_name = (const char *) ctx->proto_op_inputv[1];
+    const char *input_file = (const char *) ctx->proto_op_inputv[2];
+    ptls_handshake_properties_t *hsprop = (ptls_handshake_properties_t *) ctx->proto_op_inputv[3];
+    int request_key_update = (int) ctx->proto_op_inputv[4];
+    int keep_sender_open = (int) ctx->proto_op_inputv[5];
+    char* plugins = (char *) ctx->proto_op_inputv[6];
+    int number_of_plugins = (int) ctx->proto_op_inputv[7];
+
+
+
     ptls_buffer_t rbuf, encbuf, ptbuf;
     char bytebuf[16384];
     enum { IN_HANDSHAKE, IN_1RTT, IN_SHUTDOWN } state = IN_HANDSHAKE;
@@ -84,6 +92,10 @@ static int handle_connection(int sockfd, ptls_context_t *ctx, const char *server
     ptls_buffer_init(&ptbuf, "", 0);
 
     fcntl(sockfd, F_SETFL, O_NONBLOCK);
+
+    for (int i=0; i<number_of_plugins; i++)
+        if ((ret = ubpf_read_and_register_plugins(ctx, plugins[i])) != 0)
+            goto Exit;
 
     if (input_file != NULL) {
         if ((inputfd = open(input_file, O_RDONLY)) == -1) {
@@ -256,8 +268,6 @@ Exit:
     ptls_buffer_dispose(&rbuf);
     ptls_buffer_dispose(&encbuf);
     ptls_buffer_dispose(&ptbuf);
-    ptls_ctx_free(ctx);
-    ptls_free(tls);
     return ret != 0;
 }
 
@@ -287,10 +297,14 @@ static int run_server(struct sockaddr *sa, socklen_t salen, ptls_context_t *ctx,
     fprintf(stderr, "server started on port %d\n", ntohs(((struct sockaddr_in *) sa)->sin_port));
     while (1) {
         fprintf(stderr, "waiting for connections\n");
+        ptls_t * tls = ptls_new(ctx, true);
+        proto_op_arg_t ret = 0;
         if ((conn_fd = accept(listen_fd, NULL, 0)) != -1)
-            handle_connection(conn_fd, ctx, NULL, input_file, hsprop, request_key_update, 0, true, plugins, number_of_plugins);
+            PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_HANDLE_CONNECTION, &ret, conn_fd, NULL, input_file, hsprop, request_key_update, 0, &plugins, number_of_plugins);
+            // handle_connection(conn_fd, ctx, NULL, input_file, hsprop, request_key_update, 0, tls, plugins, number_of_plugins);
+        ptls_free(tls);
     }
-
+    ptls_ctx_free(ctx);
     return 0;
 }
 
@@ -310,9 +324,13 @@ static int run_client(struct sockaddr *sa, socklen_t salen, ptls_context_t *ctx,
         perror("connect(2) failed");
         return 1;
     }
-
-    int ret = handle_connection(fd, ctx, server_name, input_file, hsprop, request_key_update, keep_sender_open, false, plugins, number_of_plugins);
+    ptls_t *tls = ptls_new(ctx, false);
+    proto_op_arg_t ret = 0;
+    PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_HANDLE_CONNECTION, &ret, fd, server_name, input_file, hsprop, request_key_update, 0, &plugins, number_of_plugins);
+    // int ret = handle_connection(fd, ctx, server_name, input_file, hsprop, request_key_update, keep_sender_open, tls, plugins, number_of_plugins);
     free(hsprop->client.esni_keys.base);
+    ptls_ctx_free(ctx);
+    ptls_free(tls);
     return ret;
 }
 
@@ -372,6 +390,7 @@ int main(int argc, char **argv)
 
     ptls_key_exchange_algorithm_t *key_exchanges[128] = {NULL};
     ptls_context_t ctx = {ptls_openssl_random_bytes, &ptls_get_time, key_exchanges, ptls_openssl_cipher_suites};
+    ctx.ops = NULL;
     ptls_handshake_properties_t hsprop = {{{{NULL}}}};
     char plugins_array[10][PLUGIN_FNAME_MAX_SIZE];
     int number_of_plugin = 0;
@@ -560,6 +579,8 @@ int main(int argc, char **argv)
     if (resolve_address((struct sockaddr *)&sa, &salen, host, port, family, SOCK_STREAM, IPPROTO_TCP) != 0)
         exit(1);
 
+    /* Register handle connection as a new protocol operation */
+    register_noparam_proto_op(&ctx, &PROTOOP_NO_PARAM_HANDLE_CONNECTION, &handle_connection);
     if (is_server) {
         return run_server((struct sockaddr *)&sa, salen, &ctx, file, &hsprop, request_key_update, plugins_array, number_of_plugin);
     } else {
