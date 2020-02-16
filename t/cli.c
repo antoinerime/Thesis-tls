@@ -66,6 +66,7 @@
 #include <linux/if_ether.h>
 
 
+#define PTLS_MAX_ENCRYPTED_RECORD_SIZE (16384 + 256)
 
 static void shift_buffer(ptls_buffer_t *buf, size_t delta)
 {
@@ -90,7 +91,7 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
     char* plugins = (char *) ctx->proto_op_inputv[6];
     int number_of_plugins = (int) ctx->proto_op_inputv[7];
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PLUGIN PART !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-    if (!server_name) {
+    if (false) {
         // Get connection information
         struct sockaddr_in s_sa, d_sa;
         // struct sockaddr_in d_sa;
@@ -191,9 +192,9 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
             fprintf(stderr, "rtnl_tc_set_kind failed: %s\n", nl_geterror(err));
         }
 
-        rtnl_htb_set_prio(class, 1);
-        rtnl_htb_set_prio(class, 1);
-        rtnl_htb_set_rate(class, 10000);
+        rtnl_htb_set_prio(class, 0);
+        rtnl_htb_set_rate(class, 1000);
+        rtnl_htb_set_ceil(class, 1000);
 
         err = rtnl_class_add(sock, class, NLM_F_CREATE);
         if (err < 0) {
@@ -210,7 +211,7 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
             fprintf(stderr, "rtnl_set_kind child failed: %s\n", nl_geterror(err));
         }
 
-        rtnl_htb_set_prio(class_child, 1);
+        rtnl_htb_set_prio(class_child, 0);
         rtnl_htb_set_rate(class_child, 1000);
         rtnl_htb_set_ceil(class_child, 1000);
 
@@ -222,14 +223,14 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
         struct rtnl_cls *cls = rtnl_cls_alloc();
         rtnl_tc_set_link(TC_CAST(cls), link);
         rtnl_tc_set_kind(TC_CAST(cls), "u32");
-        rtnl_cls_set_prio(cls, 1);
+        rtnl_cls_set_prio(cls, 0);
         rtnl_cls_set_protocol(cls, ETH_P_IP);
         rtnl_tc_set_parent(TC_CAST(cls), TC_HANDLE(1, 0));
 
         //uint32_t direction = 12 // Src IP
         uint32_t direction = 16; //dst IP
 
-        rtnl_u32_add_key_uint32(cls, 0x7f000000, 0xffffffff, direction, 0);
+        rtnl_u32_add_key_uint32(cls, 0xc0a80011, 0xffffffff, direction, 0);
         rtnl_u32_set_classid(cls, TC_HANDLE(1, 1000));
 
         err = rtnl_cls_add(sock, cls, NLM_F_CREATE);
@@ -309,7 +310,7 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
         /* consume incoming messages */
         if (FD_ISSET(sockfd, &readfds) || FD_ISSET(sockfd, &exceptfds)) {
             size_t off = 0, leftlen;
-            while ((ioret = read(sockfd, bytebuf, sizeof(bytebuf))) == -1 && errno == EINTR)
+            while ((ioret = recv(sockfd, bytebuf, sizeof(bytebuf), MSG_DONTWAIT)) == -1 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
                 ;
             if (ioret == -1 && (errno == EWOULDBLOCK || errno == EAGAIN)) {
                 /* no data */
