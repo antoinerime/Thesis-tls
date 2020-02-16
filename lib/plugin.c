@@ -77,7 +77,6 @@ ret += ubpf_register(vm, 0x17, "ptls_aead_encrypt_init", &ptls_aead_encrypt_init
 ret += ubpf_register(vm, 0x18, "ptls_aead_encrypt_update", &ptls_aead_encrypt_update);
 ret += ubpf_register(vm, 0x19, "ptls_aead_encrypt_final", &ptls_aead_encrypt_final);
 
-ret += ubpf_register(vm, 0x20, "rtnl_qdisc_tbf_get_rate_cell", &nl_socket_alloc);
 
 
 ret += ubpf_register(vm, 0x0e, "rand", &rand);
