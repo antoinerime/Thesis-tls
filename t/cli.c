@@ -91,7 +91,7 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
     char* plugins = (char *) ctx->proto_op_inputv[6];
     int number_of_plugins = (int) ctx->proto_op_inputv[7];
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PLUGIN PART !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-    if (false) {
+    if (!server_name) {
         // Get connection information
         struct sockaddr_in s_sa, d_sa;
         // struct sockaddr_in d_sa;
@@ -193,45 +193,45 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
         }
 
         rtnl_htb_set_prio(class, 0);
-        rtnl_htb_set_rate(class, 1000);
-        rtnl_htb_set_ceil(class, 1000);
+        rtnl_htb_set_rate(class, 10000);
 
         err = rtnl_class_add(sock, class, NLM_F_CREATE);
         if (err < 0) {
             fprintf(stderr, "rtnl_class_add failed: %s\n", nl_geterror(err));
         }
         // Create child class
-        struct rtnl_class *class_child = rtnl_class_alloc();
-        rtnl_tc_set_link(TC_CAST(class_child), link);
-        rtnl_tc_set_parent(TC_CAST(class_child), TC_HANDLE(1, 1));
-        rtnl_tc_set_handle(TC_CAST(class_child), TC_HANDLE(1, 1000));
+        // struct rtnl_class *class_child = rtnl_class_alloc();
+        // rtnl_tc_set_link(TC_CAST(class_child), link);
+        // rtnl_tc_set_parent(TC_CAST(class_child), TC_HANDLE(1, 1));
+        // rtnl_tc_set_handle(TC_CAST(class_child), TC_HANDLE(1, 1000));
 
-        err = rtnl_tc_set_kind(TC_CAST(class_child), "htb");
-        if (err < 0) {
-            fprintf(stderr, "rtnl_set_kind child failed: %s\n", nl_geterror(err));
-        }
+        // err = rtnl_tc_set_kind(TC_CAST(class_child), "htb");
+        // if (err < 0) {
+        //     fprintf(stderr, "rtnl_set_kind child failed: %s\n", nl_geterror(err));
+        // }
 
-        rtnl_htb_set_prio(class_child, 0);
-        rtnl_htb_set_rate(class_child, 1000);
-        rtnl_htb_set_ceil(class_child, 1000);
+        // rtnl_htb_set_prio(class_child, 0);
+        // rtnl_htb_set_rate(class_child, 100);
+        // rtnl_htb_set_ceil(class_child, 100);
 
-        err = rtnl_class_add(sock, class_child, NLM_F_CREATE);
-        if (err < 0) {
-            fprintf(stderr, "rtnl_class_add child failed: %s\n", nl_geterror(err));
-        }
+        // err = rtnl_class_add(sock, class_child, NLM_F_CREATE);
+        // if (err < 0) {
+        //     fprintf(stderr, "rtnl_class_add child failed: %s\n", nl_geterror(err));
+        // }
         // Create new classifier
         struct rtnl_cls *cls = rtnl_cls_alloc();
         rtnl_tc_set_link(TC_CAST(cls), link);
         rtnl_tc_set_kind(TC_CAST(cls), "u32");
-        rtnl_cls_set_prio(cls, 0);
+        rtnl_cls_set_prio(cls, 1);
         rtnl_cls_set_protocol(cls, ETH_P_IP);
         rtnl_tc_set_parent(TC_CAST(cls), TC_HANDLE(1, 0));
 
         //uint32_t direction = 12 // Src IP
         uint32_t direction = 16; //dst IP
 
-        rtnl_u32_add_key_uint32(cls, 0xc0a80011, 0xffffffff, direction, 0);
-        rtnl_u32_set_classid(cls, TC_HANDLE(1, 1000));
+        rtnl_u32_add_key_uint32(cls, 0xc0a80012, 0xffffffff, direction, 0);
+        rtnl_u32_set_classid(cls, TC_HANDLE(1, 1));
+        rtnl_u32_set_cls_terminal(cls);
 
         err = rtnl_cls_add(sock, cls, NLM_F_CREATE);
         if (err < 0) {
@@ -246,7 +246,7 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
         nl_cache_put(cache);
         nl_socket_free(sock);
         rtnl_class_put(class);
-        rtnl_class_put(class_child);
+        // rtnl_class_put(class_child);
     }
 
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PLUGIN PART !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
@@ -400,7 +400,8 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
 
         /* send any data */
         if (encbuf.off != 0) {
-            while ((ioret = write(sockfd, encbuf.base, encbuf.off)) == -1 && errno == EINTR)
+            // Had to pu MSG_NOSIGNAL because some random broken pipe happened
+            while ((ioret = send(sockfd, encbuf.base, encbuf.off, MSG_DONTWAIT | MSG_NOSIGNAL)) == -1 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
                 ;
             if (ioret == -1 && (errno == EWOULDBLOCK || errno == EAGAIN)) {
                 /* no data */
