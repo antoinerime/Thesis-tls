@@ -1,6 +1,6 @@
 SRC=$(wildcard *.c)
 OBJ=$(SRC:.c=.o)
-CFLAGS=-I../../include -I../../
+CFLAGS=-I../../include -I../../ -I /usr/include/libnl3
 
 all: $(SRC) $(OBJ)
 

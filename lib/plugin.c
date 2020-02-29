@@ -11,6 +11,14 @@
 #include <elf.h>
 #include <picotls/memcpy.h>
 #include <netlink/netlink.h>
+#include <netlink/utils.h>
+#include <netlink/route/qdisc.h>
+#include <netlink/socket.h>
+#include <ifaddrs.h>
+#include <netlink/route/link.h>
+#include <netlink/route/class.h>
+#include <netlink/route/qdisc/htb.h>
+#include <netlink/route/cls/u32.h>
 #include "picotls/plugin.h"
 #include "picotls/memory.h"
 #include "picotls.h"
@@ -76,6 +84,42 @@ ret += ubpf_register(vm, 0x16, "ptls_buffer_reserve", &ptls_buffer_reserve);
 ret += ubpf_register(vm, 0x17, "ptls_aead_encrypt_init", &ptls_aead_encrypt_init);
 ret += ubpf_register(vm, 0x18, "ptls_aead_encrypt_update", &ptls_aead_encrypt_update);
 ret += ubpf_register(vm, 0x19, "ptls_aead_encrypt_final", &ptls_aead_encrypt_final);
+
+ret += ubpf_register(vm, 0x1a, "getsockname", &getsockname);
+ret += ubpf_register(vm, 0xb, "getifaddrs", &getifaddrs);
+ret += ubpf_register(vm, 0x1c, "freeifaddrs", &freeifaddrs);
+ret += ubpf_register(vm, 0x1d, "getpeername", &getpeername);
+
+ret += ubpf_register(vm, 0x1e, "nl_socket_alloc", &nl_socket_alloc);
+ret += ubpf_register(vm, 0x20, "nl_connect", &nl_connect);
+ret += ubpf_register(vm, 0x21, "rtnl_link_alloc_cache", &rtnl_link_alloc_cache);
+ret += ubpf_register(vm, 0x22, "rtnl_link_get_by_name", &rtnl_link_get_by_name);
+ret += ubpf_register(vm, 0x23, "rtnl_qdisc_alloc", &rtnl_qdisc_alloc);
+ret += ubpf_register(vm, 0x24, "rtnl_set_link", &rtnl_tc_set_link);
+ret += ubpf_register(vm, 0x25, "rtnl_tc_set_parent", &rtnl_tc_set_parent);
+ret += ubpf_register(vm, 0x26, "rtnl_set_handle", &rtnl_tc_set_handle);
+ret += ubpf_register(vm, 0x21, "rtnl_tc_set_kind", &rtnl_tc_set_kind);
+ret += ubpf_register(vm, 0x22, "rtnl_qdisc_add", &rtnl_qdisc_add);
+ret += ubpf_register(vm, 0x23, "rtnl_class_alloc", &rtnl_class_alloc);
+ret += ubpf_register(vm, 0x24, "rtnl_htb_set_prio", &rtnl_htb_set_prio);
+ret += ubpf_register(vm, 0x25, "rtnl_htb_set_rate", &rtnl_htb_set_rate);
+ret += ubpf_register(vm, 0x26, "rtnl_class_add", &rtnl_class_add);
+ret += ubpf_register(vm, 0x27, "rtnl_cls_alloc", &rtnl_cls_alloc);
+ret += ubpf_register(vm, 0x28, "rtnl_cls_set_prio", &rtnl_cls_set_prio);
+ret += ubpf_register(vm, 0x29, "rtnl_cls_set_protocol", &rtnl_cls_set_protocol);
+ret += ubpf_register(vm, 0x2a, "rtnl_u32_add_key_uint32", &rtnl_u32_add_key_uint32);
+ret += ubpf_register(vm, 0x2b, "rtnl_u32_set_class_id", &rtnl_u32_set_classid);
+ret += ubpf_register(vm, 0x2c, "rtnl_u32_set_cls_terminal", &rtnl_u32_set_cls_terminal);
+ret += ubpf_register(vm, 0x2d, "rtnl_cls_add", &rtnl_cls_add);
+
+ret += ubpf_register(vm, 0x2e, "rtnl_qdisc_put", &rtnl_qdisc_put);
+ret += ubpf_register(vm, 0x30, "rtnl_cls_put", &rtnl_cls_put);
+ret += ubpf_register(vm, 0x31, "rtnl_link_put", &rtnl_link_put);
+ret += ubpf_register(vm, 0x32, "nl_cache_put", &nl_cache_put);
+ret += ubpf_register(vm, 0x33, "nl_socket_free", &nl_socket_free);
+ret += ubpf_register(vm, 0x34, "rtnl_class_put", &rtnl_class_put);
+ret += ubpf_register(vm, 0x35, "rtnl_qdisc_delete", &rtnl_qdisc_delete);
+ret += ubpf_register(vm, 0x36, "nl_geterror", &nl_geterror);
 
 
 
