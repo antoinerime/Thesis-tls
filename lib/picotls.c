@@ -4289,6 +4289,8 @@ uint64_t ptls_get(ptls_t *tls, enum ptls_field field)
             return (uint64_t) tls->pending_handshake_secret;
         case PTLS_DATA_PTR:
             return (uint64_t) tls->data_ptr;
+        case PTLS_TRAFFIC_ENC:
+            return (uint64_t ) &tls->traffic_protection.enc;
         default:
             return 0;
     }
@@ -4851,8 +4853,13 @@ int ptls_handshake(ptls_t *tls, ptls_buffer_t *_sendbuf, const void *input, size
     return ret;
 }
 
-int ptls_receive(ptls_t *tls, ptls_buffer_t *decryptbuf, const void *_input, size_t *inlen)
+proto_op_arg_t ptls_receive(ptls_t *tls)
 {
+    ptls_context_t *ctx = ptls_get_context(tls);
+    ptls_buffer_t *decryptbuf = (ptls_buffer_t *) ctx->proto_op_inputv[0];
+    const void *_input = (const void *) ctx->proto_op_inputv[1];
+    size_t *inlen = (size_t *) ctx->proto_op_inputv[2];
+
     const uint8_t *input = (const uint8_t *)_input, *const end = input + *inlen;
     size_t decryptbuf_orig_size = decryptbuf->off;
     int ret = 0;
@@ -4910,9 +4917,13 @@ Exit:
     return ret;
 }
 
-int ptls_send(ptls_t *tls, ptls_buffer_t *sendbuf, const void *input, size_t inlen)
+proto_op_arg_t ptls_send(ptls_t *tls)
 {
     assert(tls->traffic_protection.enc.aead != NULL);
+    ptls_context_t *ctx = ptls_get_context(tls);
+    ptls_buffer_t *sendbuf = (ptls_buffer_t *) ctx->proto_op_inputv[0];
+    const void *input = (const void *) ctx->proto_op_inputv[1];
+    size_t inlen = (size_t) ctx->proto_op_inputv[2];
 
     /* "For AES-GCM, up to 2^24.5 full-size records (about 24 million) may be encrypted on a given connection while keeping a
      * safety margin of approximately 2^-57 for Authenticated Encryption (AE) security." (RFC 8446 section 5.5)
@@ -5553,4 +5564,6 @@ void picotls_register_noparam_proto_op(ptls_context_t *cnx)
 {
     register_noparam_proto_op(cnx, &PROTOOP_NO_PARAM_HANDLE_INPUT, &handle_input);
     register_noparam_proto_op(cnx, &PROTOOP_NO_PARAM_BUFFER_PUSH_ENCRYPTED_RECORDS, &buffer_push_encrypted_records);
+    register_noparam_proto_op(cnx, &PROTOOP_NO_PARAM_PTLS_RECEIVE, &ptls_receive);
+    register_noparam_proto_op(cnx, &PROTOOP_NO_PARAM_PTLS_SEND, &ptls_send);
 }

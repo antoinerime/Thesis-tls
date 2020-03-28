@@ -1,2 +1,3 @@
 Padding
-buffer_push_encrypted_records replace padding.o
+ptls_receive pre add_padding.o
+ptls_send pre del_padding.o

@@ -39,6 +39,16 @@ extern proto_op_id_t PROTOOP_NO_PARAM_BUFFER_PUSH_ENCRYPTED_RECORDS;
 /**
  *
  */
-# define PROTOPID_NO_PARAM_HANDLE_CONNECTION "handle_connection"
+# define PROTOOPID_NO_PARAM_HANDLE_CONNECTION "handle_connection"
 extern proto_op_id_t PROTOOP_NO_PARAM_HANDLE_CONNECTION;
+/**
+ *
+ */
+# define PROTOOPID_NO_PARAM_PTLS_RECEIVE "ptls_receive"
+extern proto_op_id_t PROTOOP_NO_PARAM_PTLS_RECEIVE;
+/*
+ *
+ */
+#define PROTOOPID_NO_PARAM_PTLS_SEND "ptls_send"
+extern proto_op_id_t PROTOOP_NO_PARAM_PTLS_SEND;
 #endif //PICOTLS_PROTOOP_H

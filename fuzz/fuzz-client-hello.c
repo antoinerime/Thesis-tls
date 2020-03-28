@@ -96,7 +96,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     ptls_buffer_dispose(&server_response);
     ptls_buffer_init(&server_response, "", 0);
     // receive messages
-    ptls_receive(tls_server, &server_response, data + consumed, &size);
+    proto_op_arg_t output = 0;
+    PREPARE_AND_RUN_PROTOOP(tls_server, &PROTOOP_NO_PARAM_PTLS_RECEIVE, output, &server_response, data + consumed, &size);
+    // ptls_receive(tls_server, &server_response, data + consumed, &size);
   }
 
   // clean

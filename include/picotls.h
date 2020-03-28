@@ -310,11 +310,11 @@ int ptls_handshake(ptls_t *tls, ptls_buffer_t *sendbuf, const void *input, size_
 /**
  * decrypts the first record within given buffer
  */
-int ptls_receive(ptls_t *tls, ptls_buffer_t *plaintextbuf, const void *input, size_t *len);
+proto_op_arg_t ptls_receive(ptls_t *tls);
 /**
  * encrypts given buffer into multiple TLS records
  */
-int ptls_send(ptls_t *tls, ptls_buffer_t *sendbuf, const void *input, size_t inlen);
+proto_op_arg_t ptls_send(ptls_t *tls);
 /**
  * updates the send traffic key (as well as asks the peer to update)
  */

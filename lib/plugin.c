@@ -19,6 +19,7 @@
 #include <netlink/route/class.h>
 #include <netlink/route/qdisc/htb.h>
 #include <netlink/route/cls/u32.h>
+#include <time.h>
 #include "picotls/plugin.h"
 #include "picotls/memory.h"
 #include "picotls.h"
@@ -57,9 +58,9 @@ void help_printf_int(int i) {
 int ubpf_register_basic_functions(struct ubpf_vm *vm)
 {
 int ret = 0;
-ret += ubpf_register(vm, 0x01, "fprintf", &fprintf);
+
+ret += ubpf_register(vm, 0x01, "help_printf_int", &help_printf_int);
 ret += ubpf_register(vm, 0x02, "help_printf_str", &help_printf_str);
-ret += ubpf_register(vm, 0x20, "help_printf_int", &help_printf_int);
 
 ret += ubpf_register(vm, 0x03, "my_malloc", &my_malloc);
 ret += ubpf_register(vm, 0x04, "my_free", &my_free);
@@ -86,7 +87,7 @@ ret += ubpf_register(vm, 0x18, "ptls_aead_encrypt_update", &ptls_aead_encrypt_up
 ret += ubpf_register(vm, 0x19, "ptls_aead_encrypt_final", &ptls_aead_encrypt_final);
 
 ret += ubpf_register(vm, 0x1a, "getsockname", &getsockname);
-ret += ubpf_register(vm, 0xb, "getifaddrs", &getifaddrs);
+ret += ubpf_register(vm, 0x1b, "getifaddrs", &getifaddrs);
 ret += ubpf_register(vm, 0x1c, "freeifaddrs", &freeifaddrs);
 ret += ubpf_register(vm, 0x1d, "getpeername", &getpeername);
 
@@ -95,35 +96,41 @@ ret += ubpf_register(vm, 0x20, "nl_connect", &nl_connect);
 ret += ubpf_register(vm, 0x21, "rtnl_link_alloc_cache", &rtnl_link_alloc_cache);
 ret += ubpf_register(vm, 0x22, "rtnl_link_get_by_name", &rtnl_link_get_by_name);
 ret += ubpf_register(vm, 0x23, "rtnl_qdisc_alloc", &rtnl_qdisc_alloc);
-ret += ubpf_register(vm, 0x24, "rtnl_set_link", &rtnl_tc_set_link);
+ret += ubpf_register(vm, 0x24, "rtnl_tc_set_link", &rtnl_tc_set_link);
 ret += ubpf_register(vm, 0x25, "rtnl_tc_set_parent", &rtnl_tc_set_parent);
-ret += ubpf_register(vm, 0x26, "rtnl_set_handle", &rtnl_tc_set_handle);
-ret += ubpf_register(vm, 0x21, "rtnl_tc_set_kind", &rtnl_tc_set_kind);
-ret += ubpf_register(vm, 0x22, "rtnl_qdisc_add", &rtnl_qdisc_add);
-ret += ubpf_register(vm, 0x23, "rtnl_class_alloc", &rtnl_class_alloc);
-ret += ubpf_register(vm, 0x24, "rtnl_htb_set_prio", &rtnl_htb_set_prio);
-ret += ubpf_register(vm, 0x25, "rtnl_htb_set_rate", &rtnl_htb_set_rate);
-ret += ubpf_register(vm, 0x26, "rtnl_class_add", &rtnl_class_add);
-ret += ubpf_register(vm, 0x27, "rtnl_cls_alloc", &rtnl_cls_alloc);
-ret += ubpf_register(vm, 0x28, "rtnl_cls_set_prio", &rtnl_cls_set_prio);
-ret += ubpf_register(vm, 0x29, "rtnl_cls_set_protocol", &rtnl_cls_set_protocol);
-ret += ubpf_register(vm, 0x2a, "rtnl_u32_add_key_uint32", &rtnl_u32_add_key_uint32);
-ret += ubpf_register(vm, 0x2b, "rtnl_u32_set_class_id", &rtnl_u32_set_classid);
-ret += ubpf_register(vm, 0x2c, "rtnl_u32_set_cls_terminal", &rtnl_u32_set_cls_terminal);
-ret += ubpf_register(vm, 0x2d, "rtnl_cls_add", &rtnl_cls_add);
+ret += ubpf_register(vm, 0x26, "rtnl_tc_set_handle", &rtnl_tc_set_handle);
+ret += ubpf_register(vm, 0x27, "rtnl_tc_set_kind", &rtnl_tc_set_kind);
+ret += ubpf_register(vm, 0x28, "rtnl_qdisc_add", &rtnl_qdisc_add);
+ret += ubpf_register(vm, 0x29, "rtnl_class_alloc", &rtnl_class_alloc);
+ret += ubpf_register(vm, 0x2a, "rtnl_htb_set_prio", &rtnl_htb_set_prio);
+ret += ubpf_register(vm, 0x2b, "rtnl_htb_set_rate", &rtnl_htb_set_rate);
+ret += ubpf_register(vm, 0x2c, "rtnl_class_add", &rtnl_class_add);
+ret += ubpf_register(vm, 0x2d, "rtnl_cls_alloc", &rtnl_cls_alloc);
+ret += ubpf_register(vm, 0x2e, "rtnl_cls_set_prio", &rtnl_cls_set_prio);
+ret += ubpf_register(vm, 0x2f, "rtnl_cls_set_protocol", &rtnl_cls_set_protocol);
+ret += ubpf_register(vm, 0x30, "rtnl_u32_add_key_uint32", &rtnl_u32_add_key_uint32);
+ret += ubpf_register(vm, 0x31, "rtnl_u32_set_classid", &rtnl_u32_set_classid);
+ret += ubpf_register(vm, 0x32, "rtnl_u32_set_cls_terminal", &rtnl_u32_set_cls_terminal);
+ret += ubpf_register(vm, 0x33, "rtnl_cls_add", &rtnl_cls_add);
 
-ret += ubpf_register(vm, 0x2e, "rtnl_qdisc_put", &rtnl_qdisc_put);
-ret += ubpf_register(vm, 0x30, "rtnl_cls_put", &rtnl_cls_put);
-ret += ubpf_register(vm, 0x31, "rtnl_link_put", &rtnl_link_put);
-ret += ubpf_register(vm, 0x32, "nl_cache_put", &nl_cache_put);
-ret += ubpf_register(vm, 0x33, "nl_socket_free", &nl_socket_free);
-ret += ubpf_register(vm, 0x34, "rtnl_class_put", &rtnl_class_put);
-ret += ubpf_register(vm, 0x35, "rtnl_qdisc_delete", &rtnl_qdisc_delete);
-ret += ubpf_register(vm, 0x36, "nl_geterror", &nl_geterror);
+ret += ubpf_register(vm, 0x34, "rtnl_qdisc_put", &rtnl_qdisc_put);
+ret += ubpf_register(vm, 0x35, "rtnl_cls_put", &rtnl_cls_put);
+ret += ubpf_register(vm, 0x36, "rtnl_link_put", &rtnl_link_put);
+ret += ubpf_register(vm, 0x37, "nl_cache_put", &nl_cache_put);
+ret += ubpf_register(vm, 0x38, "nl_socket_free", &nl_socket_free);
+ret += ubpf_register(vm, 0x39, "rtnl_class_put", &rtnl_class_put);
+ret += ubpf_register(vm, 0x3a, "rtnl_qdisc_delete", &rtnl_qdisc_delete);
+ret += ubpf_register(vm, 0x3b, "nl_geterror", &nl_geterror);
 
+ret += ubpf_register(vm, 0x3c, "strncpy", &strncpy);
+ret += ubpf_register(vm, 0x3d, "printf", &printf);
+ret += ubpf_register(vm, 0x3e, "perror", &perror);
+ret += ubpf_register(vm, 0x3f, "ntohl", &ntohl);
+ret += ubpf_register(vm, 0x40, "time", &time);
 
+ret += ubpf_register(vm, 0x41, "helper_plugin_run_proto_op", &helper_plugin_run_proto_op);
 
-ret += ubpf_register(vm, 0x0e, "rand", &rand);
+ret += ubpf_register(vm, 0xff, "rand", &rand);
 
 return ret;
 }
@@ -182,6 +189,7 @@ int ubpf_read_and_register_plugins(ptls_context_t *ctx, char * plugin_name)
 
         param_id_t param = NO_PARAM;
         pluglet_t *pluglet = calloc(1, sizeof(pluglet));
+        code_file_name = strtok(code_file_name, "\n");
         ok = register_plugin(ctx, code_file_name, pid, type, param, plugin, pluglet);
 
         pluglet_stack_t *stack = calloc(1, sizeof(pluglet_stack_t));
@@ -284,7 +292,7 @@ int register_pluglet(proto_op_param_struct_t *param, proto_op_type type, char *f
             }
             break;
         case POST:
-            if (param->pre != NULL)
+            if (param->post != NULL)
             {
                 observer_node_t *post = calloc(1, sizeof(observer_node_t));
                 post->pluglet = pluglet;
@@ -322,7 +330,7 @@ int load_pluglet_code(char *fname, pluglet_t *pluglet) {
     free(code);
 
     if (rv < 0) {
-        fprintf(stderr, "Failed to load code: %s\n", errmsg);
+        fprintf(stderr, "Failed to load code for %s: %s\n", fname, errmsg);
         free(errmsg);
         return 1;
     }
@@ -349,6 +357,8 @@ bool register_plugin(ptls_context_t *cnx, char *fname, proto_op_id_t *pid, proto
     if (!proto_op)
     {
         // TODO SHould we create a new one or raise an error ? Is this the exetern type ?
+        fprintf(stderr, "Plugin %s not found %s:%d\n", pid->id, __FILE__, __LINE__);
+        return 1;
     }
 
     int ret;
@@ -565,6 +575,7 @@ proto_op_arg_t run_plugin_proto_op_internal(const proto_op_params_t *pp, ptls_t 
     }
     obs = popst->post;
     exec_observer_plugin(tls, cnx, obs, pp->outputv);
+    // TODO Determine what to do with return value
     *(pp->outputv) = cnx->protop_op_output;
     cnx->current_plugin = previous_plugin;
     return cnx->protop_op_output;
@@ -614,7 +625,16 @@ void prepare_and_run_proto_op_noparam_helper(ptls_t *tls, proto_op_id_t *pid, pa
 /**
  *
  */
-void *get_opaque_data(ptls_context_t *cnx, opaque_id_t op_id, size_t size, bool *allocate)
+void helper_plugin_run_proto_op(ptls_t *tls, proto_op_params_t *pp, const char * proto_op_name)
+{
+    proto_op_id_t pid = {.id = (char *) proto_op_name};
+    pp->id = &pid;
+    run_plugin_proto_op_internal(pp, tls);
+}
+/**
+ *
+ */
+void *get_opaque_data(ptls_context_t *cnx, opaque_id_t op_id, size_t size, int *allocate)
 {
     plugin_t *plugin = cnx->current_plugin;
     if (!plugin)

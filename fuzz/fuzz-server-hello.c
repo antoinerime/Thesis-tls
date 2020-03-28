@@ -76,7 +76,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     ptls_buffer_dispose(&client_encbuf);
     ptls_buffer_init(&client_encbuf, "", 0);
     // receive messages
-    ptls_receive(tls_client, &client_encbuf, data + consumed, &size);
+    proto_op_arg_t output = 0;
+    PREPARE_AND_RUN_PROTOOP(tls_client, &PROTOOP_NO_PARAM_PTLS_RECEIVE, output, &client_encbuf, data + consumed, &size);
+    // ptls_receive(tls_client, &client_encbuf, data + consumed, &size);
   }
 
   // cleaning

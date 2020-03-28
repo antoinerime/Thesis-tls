@@ -25,7 +25,8 @@ typedef enum ptls_field {
     PTLS_SKIP_TRACING,
     PTLS_CERT_VERIF,
     PTLS_PENDING_HANDSHAKE_SCRT,
-    PTLS_DATA_PTR
+    PTLS_DATA_PTR,
+    PTLS_TRAFFIC_ENC
 }ptls_field ;
 
 typedef enum ptls_ctx_field {

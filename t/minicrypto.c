@@ -118,11 +118,13 @@ static void test_hrr(void)
     ok(consumed == sbuf.off);
     sbuf.off = 0;
 
-    ret = ptls_send(client, &cbuf, "hello world", 11);
+    PREPARE_AND_RUN_PROTOOP(client, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &cbuf, "hello world", 11);
+    // ret = ptls_send(client, &cbuf, "hello world", 11);
     ok(ret == 0);
 
     consumed = cbuf.off;
-    ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
+    PREPARE_AND_RUN_PROTOOP(server, &PROTOOP_NO_PARAM_PTLS_RECEIVE, &ret, &decbuf, cbuf.base, &consumed);
+    // ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
     ok(ret == 0);
     ok(consumed == cbuf.off);
     cbuf.off = 0;

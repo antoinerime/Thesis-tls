@@ -22,7 +22,7 @@
 #define PLUGIN_FNAME_MAX_SIZE 250
 #define EBPF_MEMORY_SIZE 100
 
-#define PREPARE_AND_RUN_PROTOOP(tls, pid, outputv, ...) prepare_and_run_proto_op_noparam_helper(tls, pid, NO_PARAM, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+#define PREPARE_AND_RUN_PROTOOP(tls, pid, outputv, ...) prepare_and_run_proto_op_noparam_helper(tls, pid, NO_PARAM, (proto_op_arg_t *) outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 
 
 /**
@@ -65,6 +65,10 @@ void prepare_and_run_proto_op_noparam_helper(ptls_t *tls, proto_op_id_t *pid, pa
 /**
  *
  */
-void *get_opaque_data(ptls_context_t *cnx, opaque_id_t op_id, size_t size, bool *allocate);
+void helper_plugin_run_proto_op(ptls_t *tls, proto_op_params_t *pp, const char *proto_op_name);
+/*
+ *
+ */
+void *get_opaque_data(ptls_context_t *cnx, opaque_id_t op_id, size_t size, int *allocate);
 #endif //PICOTLS_PLUGIN_H
 

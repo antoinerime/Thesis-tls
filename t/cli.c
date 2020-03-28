@@ -88,8 +88,6 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
     int keep_sender_open = (int) ctx->proto_op_inputv[5];
     char* plugins = (char *) ctx->proto_op_inputv[6];
     int number_of_plugins = (int) ctx->proto_op_inputv[7];
-/*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PLUGIN PART !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-/*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PLUGIN PART !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
     ptls_buffer_t rbuf, encbuf, ptbuf;
     char bytebuf[16384];
     enum { IN_HANDSHAKE, IN_1RTT, IN_SHUTDOWN } state = IN_HANDSHAKE;
@@ -103,9 +101,6 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
 
     fcntl(sockfd, F_SETFL, O_NONBLOCK);
 
-    for (int i=0; i<number_of_plugins; i++)
-        if ((ret = ubpf_read_and_register_plugins(ctx, plugins[i])) != 0)
-            goto Exit;
 
     if (input_file != NULL) {
         if ((inputfd = open(input_file, O_RDONLY)) == -1) {
@@ -169,7 +164,8 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
                         if (request_key_update)
                             ptls_update_key(tls, 1);
                         if (ptbuf.off != 0) {
-                            if ((ret = ptls_send(tls, &encbuf, ptbuf.base, ptbuf.off)) != 0) {
+                            PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &encbuf, ptbuf.base, ptbuf.off);
+                            if (ret != 0) {
                                 fprintf(stderr, "ptls_send(1rtt):%d\n", ret);
                                 goto Exit;
                             }
@@ -184,7 +180,8 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
                         goto Exit;
                     }
                 } else {
-                    if ((ret = ptls_receive(tls, &rbuf, bytebuf + off, &leftlen)) == 0) {
+                    PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_PTLS_RECEIVE, &ret, &rbuf, bytebuf + off, &leftlen, &encbuf);
+                    if (ret == 0) {
                         if (rbuf.off != 0) {
                             write(1, rbuf.base, rbuf.off);
                             rbuf.off = 0;
@@ -215,14 +212,16 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
                         send_amount = max_can_be_sent - early_bytes_sent;
                     }
                     if (send_amount != 0) {
-                        if ((ret = ptls_send(tls, &encbuf, ptbuf.base, send_amount)) != 0) {
+                        PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &encbuf, ptbuf.base, send_amount);
+                        if (ret != 0) {
                             fprintf(stderr, "ptls_send(early_data):%d\n", ret);
                             goto Exit;
                         }
                         early_bytes_sent += send_amount;
                     }
                 } else {
-                    if ((ret = ptls_send(tls, &encbuf, bytebuf, ioret)) != 0) {
+                    PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &encbuf, bytebuf, ioret);
+                    if (ret != 0) {
                         fprintf(stderr, "ptls_send(1rtt):%d\n", ret);
                         goto Exit;
                     }
@@ -272,13 +271,6 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
     }
 
 Exit:
-    // rtnl_qdisc_delete(sock, qdisc);
-    rtnl_qdisc_put(qdisc);
-    rtnl_cls_put(cls);
-    rtnl_link_put(link);
-    nl_cache_put(cache);
-    nl_socket_free(sock);
-    rtnl_class_put(class);
     if (sockfd != -1)
         close(sockfd);
     if (input_file != NULL && inputfd != -1)
@@ -314,9 +306,12 @@ static int run_server(struct sockaddr *sa, socklen_t salen, ptls_context_t *ctx,
 
     fprintf(stderr, "server started on port %d\n", ntohs(((struct sockaddr_in *) sa)->sin_port));
     while (1) {
-        fprintf(stderr, "waiting for connections\n");
-        ptls_t * tls = ptls_new(ctx, true);
         proto_op_arg_t ret = 0;
+        ptls_t * tls = ptls_new(ctx, true);
+        for (int i=0; i<number_of_plugins; i++)
+            if ((ret = ubpf_read_and_register_plugins(ctx, plugins[i])) != 0)
+                fprintf(stderr, "Failed to register plugin %s:%d\n", __FILE__, __LINE__);
+        fprintf(stderr, "waiting for connections\n");
         if ((conn_fd = accept(listen_fd, NULL, 0)) != -1)
             PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_HANDLE_CONNECTION, &ret, conn_fd, NULL, input_file, hsprop, request_key_update, 0, &plugins, number_of_plugins);
             // handle_connection(conn_fd, ctx, NULL, input_file, hsprop, request_key_update, 0, tls, plugins, number_of_plugins);
@@ -344,6 +339,9 @@ static int run_client(struct sockaddr *sa, socklen_t salen, ptls_context_t *ctx,
     }
     ptls_t *tls = ptls_new(ctx, false);
     proto_op_arg_t ret = 0;
+    for (int i=0; i<number_of_plugins; i++)
+        if ((ret = ubpf_read_and_register_plugins(ctx, plugins[i])) != 0)
+            fprintf(stderr, "Failed to register plugin %s:%d\nn", __FILE__, __LINE__);
     PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_HANDLE_CONNECTION, &ret, fd, server_name, input_file, hsprop, request_key_update, 0, &plugins, number_of_plugins);
     // int ret = handle_connection(fd, ctx, server_name, input_file, hsprop, request_key_update, keep_sender_open, tls, plugins, number_of_plugins);
     free(hsprop->client.esni_keys.base);

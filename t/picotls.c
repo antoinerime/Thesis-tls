@@ -622,7 +622,8 @@ static void test_handshake(ptls_iovec_t ticket, int mode, int expect_ticket, int
         break;
     case TEST_HANDSHAKE_EARLY_DATA:
         ok(max_early_data_size == ctx_peer->max_early_data_size);
-        ret = ptls_send(client, &cbuf, req, strlen(req));
+        PREPARE_AND_RUN_PROTOOP(client, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &cbuf, req, strlen(req));
+        // ret = ptls_send(client, &cbuf, req, strlen(req));
         ok(ret == 0);
         break;
     }
@@ -655,7 +656,8 @@ static void test_handshake(ptls_iovec_t ticket, int mode, int expect_ticket, int
         cbuf.off -= consumed;
 
         consumed = cbuf.off;
-        ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
+        PREPARE_AND_RUN_PROTOOP(server, &PROTOOP_NO_PARAM_PTLS_RECEIVE, &ret, &decbuf, cbuf.base, &consumed);
+        // ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
         ok(ret == 0);
         ok(consumed == cbuf.off);
         ok(decbuf.off == strlen(req));
@@ -664,7 +666,8 @@ static void test_handshake(ptls_iovec_t ticket, int mode, int expect_ticket, int
         cbuf.off = 0;
         decbuf.off = 0;
 
-        ret = ptls_send(server, &sbuf, resp, strlen(resp));
+        PREPARE_AND_RUN_PROTOOP(server, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &sbuf, resp, strlen(resp));
+        // ret = ptls_send(server, &sbuf, resp, strlen(resp));
         ok(ret == 0);
     } else {
         ok(consumed == cbuf.off);
@@ -704,11 +707,13 @@ static void test_handshake(ptls_iovec_t ticket, int mode, int expect_ticket, int
     }
 
     if (mode != TEST_HANDSHAKE_EARLY_DATA || require_client_authentication == 1) {
-        ret = ptls_send(client, &cbuf, req, strlen(req));
+        PREPARE_AND_RUN_PROTOOP(client, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &cbuf, req, strlen(req));
+        // ret = ptls_send(client, &cbuf, req, strlen(req));
         ok(ret == 0);
 
         consumed = cbuf.off;
-        ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
+        PREPARE_AND_RUN_PROTOOP(server, &PROTOOP_NO_PARAM_PTLS_RECEIVE, &ret, &decbuf, cbuf.base, &consumed);
+        // ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
         ok(ret == 0);
         ok(consumed == cbuf.off);
         ok(decbuf.off == strlen(req));
@@ -717,12 +722,14 @@ static void test_handshake(ptls_iovec_t ticket, int mode, int expect_ticket, int
         decbuf.off = 0;
         cbuf.off = 0;
 
-        ret = ptls_send(server, &sbuf, resp, strlen(resp));
+        PREPARE_AND_RUN_PROTOOP(server, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &sbuf, resp, strlen(resp));
+        // ret = ptls_send(server, &sbuf, resp, strlen(resp));
         ok(ret == 0);
     }
 
     consumed = sbuf.off;
-    ret = ptls_receive(client, &decbuf, sbuf.base, &consumed);
+    PREPARE_AND_RUN_PROTOOP(client, &PROTOOP_NO_PARAM_PTLS_RECEIVE, &ret, &decbuf, sbuf.base, &consumed);
+    // ret = ptls_receive(client, &decbuf, sbuf.base, &consumed);
     ok(ret == 0);
     ok(consumed == sbuf.off);
     ok(decbuf.off == strlen(resp));
@@ -733,7 +740,8 @@ static void test_handshake(ptls_iovec_t ticket, int mode, int expect_ticket, int
 
     if (mode == TEST_HANDSHAKE_EARLY_DATA) {
         consumed = cbuf.off;
-        ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
+        PREPARE_AND_RUN_PROTOOP(server, &PROTOOP_NO_PARAM_PTLS_RECEIVE, &ret, &decbuf, cbuf.base, &consumed);
+        // ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
         ok(ret == 0);
         ok(cbuf.off == consumed);
         ok(decbuf.off == 0);
@@ -747,12 +755,14 @@ static void test_handshake(ptls_iovec_t ticket, int mode, int expect_ticket, int
         ok(ret == 0);
         ok(server->needs_key_update);
         ok(server->key_update_send_request);
-        ret = ptls_send(server, &sbuf, "good bye", 8);
+        PREPARE_AND_RUN_PROTOOP(server, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &sbuf, "good bye", 8);
+        // ret = ptls_send(server, &sbuf, "good bye", 8);
         ok(ret == 0);
         ok(!server->needs_key_update);
         ok(!server->key_update_send_request);
         consumed = sbuf.off;
-        ret = ptls_receive(client, &decbuf, sbuf.base, &consumed);
+        PREPARE_AND_RUN_PROTOOP(client, &PROTOOP_NO_PARAM_PTLS_RECEIVE, &ret, &decbuf, sbuf.base, &consumed);
+        // ret = ptls_receive(client, &decbuf, sbuf.base, &consumed);
         ok(ret == 0);
         ok(sbuf.off == consumed);
         ok(decbuf.off == 8);
@@ -761,10 +771,12 @@ static void test_handshake(ptls_iovec_t ticket, int mode, int expect_ticket, int
         ok(!client->key_update_send_request);
         sbuf.off = 0;
         decbuf.off = 0;
-        ret = ptls_send(client, &cbuf, "hello", 5);
+        PREPARE_AND_RUN_PROTOOP(client, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &cbuf, "hello", 5);
+        // ret = ptls_send(client, &cbuf, "hello", 5);
         ok(ret == 0);
         consumed = cbuf.off;
-        ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
+        PREPARE_AND_RUN_PROTOOP(server, &PROTOOP_NO_PARAM_PTLS_RECEIVE, &ret, &decbuf, cbuf.base, &consumed);
+        // ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
         ok(ret == 0);
         ok(cbuf.off == consumed);
         ok(decbuf.off == 5);
@@ -1028,11 +1040,13 @@ static void test_enforce_retry(int use_cookie)
     ok(sbuf.off == consumed);
     sbuf.off = 0;
 
-    ret = ptls_send(client, &cbuf, "hello world", 11);
+    PREPARE_AND_RUN_PROTOOP(client, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &cbuf, "hello world", 11);
+    // ret = ptls_send(client, &cbuf, "hello world", 11);
     ok(ret == 0);
 
     consumed = cbuf.off;
-    ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
+    PREPARE_AND_RUN_PROTOOP(server, &PROTOOP_NO_PARAM_PTLS_RECEIVE, &ret, &decbuf, cbuf.base, &consumed);
+    // ret = ptls_receive(server, &decbuf, cbuf.base, &consumed);
     ok(ret == 0);
     ok(cbuf.off == consumed);
     cbuf.off = 0;
@@ -1352,7 +1366,8 @@ static void test_handshake_api(void)
     ok(client_hs_prop.client.max_early_data_size != 0);
     ok(client_hs_prop.client.early_data_acceptance == PTLS_EARLY_DATA_ACCEPTANCE_UNKNOWN);
     ok(cbuf.off != 0);
-    ret = ptls_send(client, &cbuf, "hello world", 11); /* send 0-RTT data that'll be rejected */
+    PREPARE_AND_RUN_PROTOOP(client, &PROTOOP_NO_PARAM_PTLS_SEND, &ret, &cbuf, "hello world", 11);
+    // ret = ptls_send(client, &cbuf, "hello world", 11); /* send 0-RTT data that'll be rejected */
     ok(ret == 0);
     size_t inlen = cbuf.off;
     ret = ptls_handshake(server, &sbuf, cbuf.base, &inlen, &server_hs_prop); /* CH -> HRR */
