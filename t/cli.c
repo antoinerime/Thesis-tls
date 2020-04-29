@@ -76,6 +76,22 @@ static void shift_buffer(ptls_buffer_t *buf, size_t delta)
     }
 }
 
+
+static proto_op_arg_t select_operation(ptls_t *tls)
+{
+    ptls_context_t *ctx = ptls_get_context(tls);
+    uint64_t maxfd = ctx->proto_op_inputv[0];
+    fd_set *readfds = (fd_set *) ctx->proto_op_inputv[1];
+    fd_set *writefds = (fd_set *) ctx->proto_op_inputv[2];
+    fd_set *exceptfds = (fd_set *) ctx->proto_op_inputv[3];
+    struct timeval *timeout = (struct timeval *) ctx->proto_op_inputv[4];
+
+    int ret = select(maxfd, readfds, writefds, exceptfds, timeout);
+    if (ret == -1)
+        fprintf(stderr, "Error: %s\n", strerror(errno));
+    return ret;
+}
+
 static proto_op_arg_t handle_connection(ptls_t *tls)
 {
     /* Get argument */
@@ -123,6 +139,7 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
         fd_set readfds, writefds, exceptfds;
         int maxfd = 0;
         struct timeval timeout;
+        int out = 0;
         do {
             FD_ZERO(&readfds);
             FD_ZERO(&writefds);
@@ -140,7 +157,8 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
             }
             timeout.tv_sec = encbuf.off != 0 ? 0 : 3600;
             timeout.tv_usec = 0;
-        } while (select(maxfd, &readfds, &writefds, &exceptfds, &timeout) == -1);
+            PREPARE_AND_RUN_PROTOOP(tls, &PROTOOP_NO_PARAM_SELECT_OPERATION, &out, maxfd, &readfds, &writefds, &exceptfds, &timeout, &encbuf);
+        } while (out == -1);
 
         /* consume incoming messages */
         if (FD_ISSET(sockfd, &readfds) || FD_ISSET(sockfd, &exceptfds)) {
@@ -597,6 +615,7 @@ int main(int argc, char **argv)
 
     /* Register handle connection as a new protocol operation */
     register_noparam_proto_op(&ctx, &PROTOOP_NO_PARAM_HANDLE_CONNECTION, &handle_connection);
+    register_noparam_proto_op(&ctx, &PROTOOP_NO_PARAM_SELECT_OPERATION, &select_operation);
     if (is_server) {
         return run_server((struct sockaddr *)&sa, salen, &ctx, file, &hsprop, request_key_update, plugins_array, number_of_plugin);
     } else {

@@ -55,11 +55,46 @@ void help_printf_str(char *s) {
 void help_printf_int(int i) {
     printf("%d\n", i);
 }
-int ubpf_register_basic_functions(struct ubpf_vm *vm)
-{
-int ret = 0;
 
-ret += ubpf_register(vm, 0x01, "help_printf_int", &help_printf_int);
+int help_plugin_select(uint64_t *args[])
+{
+    int maxfd = (int) args[0];
+    fd_set *readfds = (fd_set *) args[1];
+    fd_set *writefds = (fd_set *) args[2];
+    fd_set *exceptfds = (fd_set *) args[3];
+    struct timeval *tv = (struct timeval *) args[4];
+
+    return select(maxfd, readfds, writefds, exceptfds, tv);
+}
+
+uint32_t help_ntohl(uint32_t val)
+{
+    val = ntohl(val);
+    return val;
+}
+
+void help_get_dist_addr(struct ifaddrs *ifaddr, char iface[], struct sockaddr_in s_sa) {
+    struct ifaddrs *ifa;
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr) {
+            if (AF_INET == ifa->ifa_addr->sa_family) {
+                struct sockaddr_in *inaddr = (struct sockaddr_in *) ifa->ifa_addr;
+
+                if (inaddr->sin_addr.s_addr == s_sa.sin_addr.s_addr) {
+                    if (ifa->ifa_name) {
+                        strncpy(iface, ifa->ifa_name, 20);
+                    }
+                }
+            }
+        }
+    }
+}
+
+        int ubpf_register_basic_functions(struct ubpf_vm *vm)
+{
+    int ret = 0;
+
+    ret += ubpf_register(vm, 0x01, "help_printf_int", &help_printf_int);
 ret += ubpf_register(vm, 0x02, "help_printf_str", &help_printf_str);
 
 ret += ubpf_register(vm, 0x03, "my_malloc", &my_malloc);
@@ -125,10 +160,12 @@ ret += ubpf_register(vm, 0x3b, "nl_geterror", &nl_geterror);
 ret += ubpf_register(vm, 0x3c, "strncpy", &strncpy);
 ret += ubpf_register(vm, 0x3d, "printf", &printf);
 ret += ubpf_register(vm, 0x3e, "perror", &perror);
-ret += ubpf_register(vm, 0x3f, "ntohl", &ntohl);
+ret += ubpf_register(vm, 0x3f, "help_ntohl", &help_ntohl);
 ret += ubpf_register(vm, 0x40, "time", &time);
 
 ret += ubpf_register(vm, 0x41, "helper_plugin_run_proto_op", &helper_plugin_run_proto_op);
+ret += ubpf_register(vm, 0x42, "help_plugin_select", &help_plugin_select);
+ret += ubpf_register(vm, 0x43, "help_get_dist_addr", &help_get_dist_addr);
 
 ret += ubpf_register(vm, 0xff, "rand", &rand);
 
@@ -184,6 +221,7 @@ int ubpf_read_and_register_plugins(ptls_context_t *ctx, char * plugin_name)
         if ((ok = parse_line(line, dir_name, &code_file_name, &pid, &type)) == false)
         {
             // TODO Free macro or sth
+            fprintf(stderr, "Failed to parse line %s:%d", __FILE__, __LINE__);
             return -1;
         }
 
@@ -271,8 +309,8 @@ int register_pluglet(proto_op_param_struct_t *param, proto_op_type type, char *f
         case REPLACE:
             if (param->replace)
             {
-                // TODO Error if there is already a replace ?
-                return -1;
+                fprintf(stderr, "Replacing an existing pluglet from plugin %s to %s\n%s:%d\n", param->replace->plugin->name, pluglet->plugin->name, __FILE__, __LINE__);
+                param->replace = pluglet;
             } else {
                 param->replace = pluglet;
             }
@@ -431,6 +469,7 @@ plugin_t *initialize_plugin(ptls_context_t *cnx, char *line, size_t len) {
         return NULL;
     }
     strncpy(p->name, line, len);
+    p->name = strtok(p->name, "\n");
     strncat(p->name, "\0", 1);
     return p;
 }
@@ -564,6 +603,8 @@ proto_op_arg_t run_plugin_proto_op_internal(const proto_op_params_t *pp, ptls_t 
     cnx->proto_op_inputv = pp->inputv;
     observer_node_t *obs = popst->pre;
     exec_observer_plugin(tls, cnx, obs, pp->outputv);
+    // TODO find why proto_op_inputv is being altered
+    cnx->proto_op_inputv = pp->inputv;
     if (popst->replace) {
         exec_pluglet(tls, cnx, popst->replace, pp->outputv);
     }

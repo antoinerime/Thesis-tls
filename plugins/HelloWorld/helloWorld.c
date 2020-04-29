@@ -25,7 +25,7 @@ int hello_word(ptls_t *tls)
     help_printf_int(allocate);
     if (!allocate)
     {
-        help_print_str("data =");
+        help_printf_str("data =");
         int res = 0;
         my_memcpy(&res, data, sizeof(int));
         help_printf_int(res);

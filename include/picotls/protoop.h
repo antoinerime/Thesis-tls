@@ -51,4 +51,9 @@ extern proto_op_id_t PROTOOP_NO_PARAM_PTLS_RECEIVE;
  */
 #define PROTOOPID_NO_PARAM_PTLS_SEND "ptls_send"
 extern proto_op_id_t PROTOOP_NO_PARAM_PTLS_SEND;
+/*
+ *
+ */
+#define PROTOOPID_NO_PARAM_SELECT_OPERATION "select_operation"
+extern proto_op_id_t PROTOOP_NO_PARAM_SELECT_OPERATION;
 #endif //PICOTLS_PROTOOP_H

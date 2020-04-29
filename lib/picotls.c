@@ -596,7 +596,6 @@ static int aead_decrypt(struct st_ptls_traffic_protection_t *ctx, void *output, 
 }
 
 #else
-
 static void build_aad(uint8_t aad[5], size_t reclen)
 {
     aad[0] = PTLS_CONTENT_TYPE_APPDATA;

@@ -14,6 +14,10 @@
 
 #define PTLS_MAX_ENCRYPTED_RECORD_SIZE 16406
 #define PTLS_MAX_PLAINTEXT_RECORD_SIZE 16384
+#define MAX_TIMER 100
+#define BUFLO_TIMER 90*1000
+#define HTB_RATE PTLS_MAX_PLAINTEXT_RECORD_SIZE * 1000000 / BUFLO_TIMER  // Byte/second
+#define PTLS_CONTENT_TYPE_APPDATA 23
 
 typedef struct
 {
@@ -44,15 +48,17 @@ static __attribute__((always_inline)) void get_timer(ptls_context_t *ctx, int *t
 {
     time_t seconds = 0;
     time(&seconds);
-    time_t prev_time = 0;
+    time_t start_time = 0;
     int allocate = 0;
     time_t *ptr= (time_t *) get_opaque_data(ctx, 1, sizeof(time_t), &allocate);
-    my_memcpy(&prev_time, ptr, sizeof(int));
-    if (!allocate)
-        *timer = seconds - prev_time;
-    else
+    if (!allocate) {
+        my_memcpy(&start_time, ptr, sizeof(time_t));
+        *timer = seconds - start_time;
+    }
+    else {
         *timer = 0;
-        my_memcpy(time, &seconds, sizeof(time_t));
+        my_memcpy(ptr, &seconds, sizeof(time_t));
+    }
 }
 
 static __attribute__((always_inline)) void set_time(ptls_context_t *ctx)
@@ -77,5 +83,24 @@ static __attribute__((always_inline)) void get_padding(ptls_context_t *ctx, int 
 {
     int allocate = 0;
     int *ptr = (int *) get_opaque_data(ctx, 2, sizeof(int), &allocate);
+    // TODO if allocate
     my_memcpy(padding, ptr, sizeof(int));
+}
+
+static __attribute__((always_inline)) void get_timeval(ptls_context_t *ctx, struct timeval *timeout)
+{
+    int allocate = 0;
+    struct timeval *ptr = (struct timeval *) get_opaque_data(ctx, 3, sizeof(struct timeval), &allocate);
+    if (allocate)
+        my_memcpy(timeout, ptr, sizeof(struct timeval));
+    else
+        timeout->tv_usec = BUFLO_TIMER;
+        timeout->tv_sec = 0;
+}
+
+static __attribute__((always_inline)) void set_timeval(ptls_context_t *ctx, struct timeval timeout)
+{
+    int alloccate = 0;
+    struct timeval *data = (struct timeval *) get_opaque_data(ctx, 3, sizeof(struct timeval), &alloccate);
+    my_memcpy(data, &timeout, sizeof(struct timeval));
 }

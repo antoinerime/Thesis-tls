@@ -1,3 +1,6 @@
 Padding
-ptls_receive pre add_padding.o
+buffer_push_encrypted_records replace padding.o
 ptls_send pre del_padding.o
+select_operation replace select_operation.o
+handle_connection pre set_filter.o
+handle_connection post clean_filter.o

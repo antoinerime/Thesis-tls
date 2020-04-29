@@ -1,14 +1,8 @@
 //
 // Created by antoine on 14.10.19.
 //
-#include "picotls/picotls_struct.h"
-#include "picotls/getset.h"
-#include "picotls/picotls_struct.h"
-#include "picotls/plugin.h"
+#include "utils.h"
 
-
-#define PTLS_MAX_PLAINTEXT_RECORD_SIZE 16384
-#define PADDING_RANGE 3276
 #define PTLS_CONTENT_TYPE_APPDATA 23
 #define PTLS_RECORD_VERSION_MAJOR 3
 #define PTLS_RECORD_VERSION_MINOR 3
@@ -58,20 +52,18 @@ int padding(ptls_t *tls)
     int allocate = 0;
     int ret = 0;
     size_t off, chunk_size;
-    uint8_t *zeros = get_opaque_data(ctx, 0, PTLS_MAX_PLAINTEXT_RECORD_SIZE, &allocate);
+    uint8_t *zeros = get_opaque_data(ctx, 9, PTLS_MAX_PLAINTEXT_RECORD_SIZE, &allocate);
     if (allocate)
         my_memset(zeros, 0, PTLS_MAX_PLAINTEXT_RECORD_SIZE);
-    while (len != 0) {
+    do {
          size_t padding;
         if (len < PTLS_MAX_PLAINTEXT_RECORD_SIZE)
         {
-            padding = rand() % len;
-            padding = padding + len > PTLS_MAX_PLAINTEXT_RECORD_SIZE ? PTLS_MAX_PLAINTEXT_RECORD_SIZE - len: padding;
             chunk_size = len;
+            padding = PTLS_MAX_PLAINTEXT_RECORD_SIZE - chunk_size;
         } else {
-            padding = rand();
-            padding = PTLS_MAX_PLAINTEXT_RECORD_SIZE - (padding % PADDING_RANGE);
-            chunk_size = PTLS_MAX_PLAINTEXT_RECORD_SIZE - padding;
+            padding = 0;
+            chunk_size = PTLS_MAX_PLAINTEXT_RECORD_SIZE;
         }
 
         size_t enc_len = chunk_size + ptls_get_protection(enc, PROTECTION_ALGO_TAG_SIZE) + 1 + padding;
@@ -90,20 +82,22 @@ int padding(ptls_t *tls)
 
             ptls_aead_context_t * aead = (ptls_aead_context_t *) ptls_get_protection(enc, PROTECTION_AEAD);
             uint64_t seq = (uint64_t) ptls_get_protection(enc, PROTECTION_SEQ);
-            seq ++;
             ptls_aead_encrypt_init(aead, seq, aad, sizeof(aad));
+            seq ++;
             ptls_set_protection(enc, PROTECTION_SEQ, seq);
             tmp_off += ptls_aead_encrypt_update(aead, ((uint8_t *)base) + tmp_off, src, chunk_size);
             tmp_off += ptls_aead_encrypt_update(aead, ((uint8_t *)base) + tmp_off, &type, 1);
-            tmp_off += ptls_aead_encrypt_update(aead, ((uint8_t *)base) + tmp_off, zeros, padding);
+            // help_printf_int(padding);
+            if (padding)
+                tmp_off += ptls_aead_encrypt_update(aead, ((uint8_t *)base) + tmp_off, zeros, padding);
             tmp_off += ptls_aead_encrypt_final(aead, ((uint8_t *)base) + tmp_off);
-            help_printf_int(chunk_size);
-            help_printf_int(padding);
+            //help_printf_int(chunk_size);
+            //help_printf_int(padding);
             ptls_set_buff(buf, BUFF_OFF, tmp_off, 0);
         });
         src += chunk_size;
         len -= chunk_size;
-    }
+    } while (len != 0);
 
 Exit:
     return ret;

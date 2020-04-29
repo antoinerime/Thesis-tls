@@ -38,28 +38,7 @@ int set_filter(ptls_t *tls)
     getifaddrs(&ifaddr);
     // look which interface contains the wanted IP.
     // When found, ifa->ifa_name contains the name of the interface (eth0, eth1, ppp0...)
-    help_printf_str("60\n");
-    // for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
-    // {
-    //     if (ifa->ifa_addr)
-    //     {
-    //         if (AF_INET == ifa->ifa_addr->sa_family)
-    //         {
-    //             struct sockaddr_in* inaddr = (struct sockaddr_in*)ifa->ifa_addr;
-
-    //             if (inaddr->sin_addr.s_addr == s_sa.sin_addr.s_addr)
-    //             {
-    //                 if (ifa->ifa_name)
-    //                 {
-    //                     help_printf_str("60\n");
-    //                     strncpy(iface, ifa->ifa_name, 20);
-    //                     help_printf_str("60\n");
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    help_printf_str("end loop\n");
+    help_get_dist_addr(ifaddr, iface, s_sa);
     freeifaddrs(ifaddr);
 
     err = getpeername(sockfd, &d_sa, &d_sa_len);
@@ -75,11 +54,9 @@ int set_filter(ptls_t *tls)
 
     // provide the caches added to the manager.
 
-    help_printf_str("start sock\n");
     struct nl_sock *sock = nl_socket_alloc();
     nl_connect(sock, NETLINK_ROUTE);
 
-    help_printf_str("alloc sock\n");
     struct nl_cache *cache;
 
     struct rtnl_link *link;
@@ -87,7 +64,7 @@ int set_filter(ptls_t *tls)
     if (rtnl_link_alloc_cache(sock, AF_UNSPEC, &cache) < 0)
         perror("alloc_cache() failed");
 
-    if (!(link = rtnl_link_get_by_name(cache, "enp3s0")))
+    if (!(link = rtnl_link_get_by_name(cache, iface)))
         perror("link get by name() failed");
     // err = rtnl_link_get_kernel(sock, 2, "enp3so", &link);
     // if (err)
@@ -122,7 +99,7 @@ int set_filter(ptls_t *tls)
     }
 
     rtnl_htb_set_prio(class, 0);
-    rtnl_htb_set_rate(class, 10000);
+    rtnl_htb_set_rate(class, HTB_RATE);
 
     err = rtnl_class_add(sock, class, NLM_F_CREATE);
     if (err < 0) {
@@ -139,8 +116,8 @@ int set_filter(ptls_t *tls)
     //uint32_t direction = 12 // Src IP
     uint32_t direction = 16; //dst IP
 
-    // uint32_t dist_addr = ntohl(d_sa.sin_addr.s_addr);
-    rtnl_u32_add_key_uint32(cls, d_sa.sin_addr.s_addr, 0xffffffff, direction, 0);
+    uint32_t dist_addr = help_ntohl(d_sa.sin_addr.s_addr);
+    rtnl_u32_add_key_uint32(cls, dist_addr, 0xffffffff, direction, 0);
     rtnl_u32_set_classid(cls, TC_HANDLE(1, 1));
     rtnl_u32_set_cls_terminal(cls);
 
