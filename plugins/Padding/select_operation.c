@@ -3,7 +3,7 @@
 //
 #include "utils.h"
 
-#define PTLS_STATE_SERVER_POST_HANDSHAKE 15
+#define PTLS_STATE_CLIENT_POST_HANDSHAKE 14
 
 int select_operation (ptls_t *tls)
 {
@@ -16,7 +16,7 @@ int select_operation (ptls_t *tls)
 
     uint64_t off = ptls_get_buff(sendbuf, BUFF_OFF);
     int state = ptls_get(tls, PTLS_STATE);
-    if (state < PTLS_STATE_SERVER_POST_HANDSHAKE || off) {
+    if (state < PTLS_STATE_CLIENT_POST_HANDSHAKE || off) {
         uint64_t *args[5] = {maxfd, readfds, writefds, exceptfds, timeout};
         return help_plugin_select(args);
     }
