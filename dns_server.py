@@ -7,27 +7,26 @@ import sys
 import select
 import struct
 import threading
-
+import getopt
 
 PTLS_PATH = "/home/{}/Thesis-tls/"
 PACK_FMT = "<I"
 
-HOST = ""
-PORT = 0
 
 def handle_input(s, proc, port):
+    port = struct.pack(PACK_FMT, port)
     while True:
         try:
             data, addr = s.recvfrom(2048)
             if len(data) == 0:
                 break
-            port = struct.pack(PACK_FMT, port)
             data_len = struct.pack(PACK_FMT, len(data))
             proc.stdin.write(port + data_len + data)
         except socket.error as serr:
             print ("handle_input: " + serr.strerror)
             break
         except struct.error as struct_err:
+            print 'unpacck error'
             pass # UDP error ?
     s.close()
 
@@ -55,24 +54,34 @@ def handle_output(proc, connections):
 
 
 def main():
-    if len(sys.argv) != 3:
+    padding = False
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "", ["padding"])
+    except getopt.GetoptError as err:
+        print str(err)
+        sys.exit(2)
+    for o, a in opts:
+        if o in "--padding":
+            padding = True
+            if os.geteuid() != 0:
+                exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
+
+    if len(args) != 2:
         print('Missing host and port')
         return
-    HOST = sys.argv[1]
-    PORT = sys.argv[2]
+    host = args[0]
+    port = args[1]
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     # Listen for traffic coming from browser
     # Establish TLS tunnel
 
-
-    proc = subprocess.Popen(
-        ["./cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", "-p", "plugins/Padding/padding.plugin", HOST,
-         PORT],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr.fileno())
-    # proc = subprocess.Popen(
-    #     [PTLS_PATH + "cli", "-c", PTLS_PATH + "cert/certificate.pem", "-k", PTLS_PATH + "cert/key.pem", "localhost",
-    #      "8443"],
-    #     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr.fileno())
+    if padding:
+        args = ["./cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", "-p", "plugins/Padding/padding.plugin", host, port]
+    else:
+        args = ["./cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", host, port]
+    proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stdout.fileno())
     fd_list = list()
     connections = dict()
     port_map = dict()

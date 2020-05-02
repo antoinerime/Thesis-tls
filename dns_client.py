@@ -8,15 +8,17 @@ import select
 import threading
 import struct
 import errno
+import getopt
 
 PTLS_PATH = "/home/antoine/Documents/Memoire/Thesis-tls/"
 PACK_FMT = "<I"
 
 HOST = ""
 PORT = 0
+PADDING = False
 
 def handle_input(s, connections):
-    global HOST, PORT
+    global HOST, PORT, PADDING
     init_proc = True
     proc = None
     while True:
@@ -25,9 +27,11 @@ def handle_input(s, connections):
             port_int = port
             connections[port] = (addr, port)
             if init_proc:
-                proc = subprocess.Popen(
-                    ["./cli", "-p", "plugins/Padding/padding.plugin", HOST, PORT],
-                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stdout.fileno())
+                if PADDING:
+                    args = ["./cli", "-p", "plugins/Padding/padding.plugin", HOST, PORT]
+                else:
+                    args = ["./cli", HOST, PORT]
+                proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stdout.fileno())
                 thread_handle_output = threading.Thread(target=handle_output, args=(proc, connections, s))
 
                 thread_handle_output.daemon = True
@@ -63,12 +67,23 @@ def handle_output(proc, connections, s):
 
 
 def main():
-    if len(sys.argv) != 3:
+    global PADDING
+    if os.geteuid() != 0:
+        exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "", ["padding"])
+    except getopt.GetoptError as err:
+        print str(err)
+        sys.exit(2)
+    for o, a in opts:
+        if o in "--padding":
+            PADDING = True
+    if len(args) != 2:
         print('Missing host and port')
         return
     global HOST, PORT
-    HOST = sys.argv[1]
-    PORT = sys.argv[2]
+    HOST = args[0]
+    PORT = args[1]
 
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
