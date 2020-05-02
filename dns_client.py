@@ -26,7 +26,7 @@ def handle_input(s, connections):
             connections[port] = (addr, port)
             if init_proc:
                 proc = subprocess.Popen(
-                    ["cli", "-p", "plugins/Padding/padding.plugin", HOST, PORT],
+                    ["./cli", "-p", "plugins/Padding/padding.plugin", HOST, PORT],
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stdout.fileno())
                 thread_handle_output = threading.Thread(target=handle_output, args=(proc, connections, s))
 

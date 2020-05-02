@@ -66,7 +66,7 @@ def main():
 
 
     proc = subprocess.Popen(
-        ["cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", "-p", "plugins/Padding/padding.plugin", HOST,
+        ["./cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", "-p", "plugins/Padding/padding.plugin", HOST,
          PORT],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr.fileno())
     # proc = subprocess.Popen(
