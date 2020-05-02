@@ -8,9 +8,12 @@ import select
 import struct
 import threading
 
-PTLS_PATH = "/home/antoine/Documents/Memoire/Thesis-tls/"
+
+PTLS_PATH = "/home/{}/Thesis-tls/"
 PACK_FMT = "<I"
 
+HOST = ""
+PORT = 0
 
 def handle_input(s, proc, port):
     while True:
@@ -52,11 +55,19 @@ def handle_output(proc, connections):
 
 
 def main():
+    if len(sys.argv) != 3:
+        print('Missing host and port')
+        return
+    HOST = sys.argv[1]
+    PORT = sys.argv[2]
+
     # Listen for traffic coming from browser
     # Establish TLS tunnel
+
+
     proc = subprocess.Popen(
-        [PTLS_PATH + "cli", "-c", PTLS_PATH + "cert/certificate.pem", "-k", PTLS_PATH + "cert/key.pem", "-p", PTLS_PATH + "plugins/Padding/padding.plugin", "localhost",
-         "8443"],
+        ["cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", "-p", "plugins/Padding/padding.plugin", HOST,
+         PORT],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr.fileno())
     # proc = subprocess.Popen(
     #     [PTLS_PATH + "cli", "-c", PTLS_PATH + "cert/certificate.pem", "-k", PTLS_PATH + "cert/key.pem", "localhost",

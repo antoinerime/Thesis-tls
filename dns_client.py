@@ -12,8 +12,11 @@ import errno
 PTLS_PATH = "/home/antoine/Documents/Memoire/Thesis-tls/"
 PACK_FMT = "<I"
 
+HOST = ""
+PORT = 0
 
 def handle_input(s, connections):
+    global HOST, PORT
     init_proc = True
     proc = None
     while True:
@@ -23,7 +26,7 @@ def handle_input(s, connections):
             connections[port] = (addr, port)
             if init_proc:
                 proc = subprocess.Popen(
-                    [PTLS_PATH + "cli", "-p", PTLS_PATH + "plugins/Padding/padding.plugin", "localhost", "8443"],
+                    ["cli", "-p", "plugins/Padding/padding.plugin", HOST, PORT],
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stdout.fileno())
                 thread_handle_output = threading.Thread(target=handle_output, args=(proc, connections, s))
 
@@ -60,6 +63,13 @@ def handle_output(proc, connections, s):
 
 
 def main():
+    if len(sys.argv) != 3:
+        print('Missing host and port')
+        return
+    global HOST, PORT
+    HOST = sys.argv[1]
+    PORT = sys.argv[2]
+
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(("127.0.0.1", 53))
