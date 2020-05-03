@@ -72,8 +72,6 @@ def main():
     host = args[0]
     port = args[1]
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
     # Listen for traffic coming from browser
     # Establish TLS tunnel
 
