@@ -76,9 +76,9 @@ def main():
     # Establish TLS tunnel
 
     if padding:
-        args = ["../cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", "-p", "../plugins/Padding/padding.plugin", host, port]
+        args = ["../cli", "-c", "../cert/certificate.pem", "-k", "../cert/key.pem", "-p", "../plugins/Padding/padding.plugin", host, port]
     else:
-        args = ["../cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", host, port]
+        args = ["../cli", "-c", "../cert/certificate.pem", "-k", "../cert/key.pem", host, port]
     proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stdout.fileno())
     fd_list = list()
     connections = dict()
