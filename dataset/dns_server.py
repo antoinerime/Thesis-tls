@@ -11,7 +11,7 @@ import getopt
 
 PTLS_PATH = "/home/{}/Thesis-tls/"
 PACK_FMT = "<I"
-
+SOCKET_TIMEOUT = 120
 
 def handle_input(s, proc, port):
     port = struct.pack(PACK_FMT, port)
@@ -22,8 +22,7 @@ def handle_input(s, proc, port):
                 break
             data_len = struct.pack(PACK_FMT, len(data))
             proc.stdin.write(port + data_len + data)
-        except socket.error as serr:
-            print ("handle_input: " + serr.strerror)
+        except socket.timeout as serr:
             break
         except struct.error as struct_err:
             print 'unpacck error'
@@ -45,6 +44,7 @@ def handle_output(proc, connections):
                 sock.sendto(data, ("8.8.8.8", 53))
             else:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.settimeout(SOCKET_TIMEOUT)
                 threading.Thread(target=handle_input, args=(sock, proc, port)).start()
                 try:
                     connections[port] = sock
@@ -76,9 +76,9 @@ def main():
     # Establish TLS tunnel
 
     if padding:
-        args = ["./cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", "-p", "plugins/Padding/padding.plugin", host, port]
+        args = ["../cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", "-p", "../plugins/Padding/padding.plugin", host, port]
     else:
-        args = ["./cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", host, port]
+        args = ["../cli", "-c", "cert/certificate.pem", "-k", "cert/key.pem", host, port]
     proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stdout.fileno())
     fd_list = list()
     connections = dict()

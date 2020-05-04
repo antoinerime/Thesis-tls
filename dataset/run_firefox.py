@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.expected_conditions import presence_of_element_located
+from selenium.webdriver.firefox.options import Options
+
+import time
+import sys
+import os
+
+os.seteuid(1000)
+
+website_domain = sys.argv[1]
+FirefoxProfile = "/home/antoine/.mozilla/firefox/1ixe98kd.Selenium"
+options = Options()
+options.headless = True
+profile = webdriver.FirefoxProfile(FirefoxProfile)
+current_path = os.path.dirname(os.path.abspath(__file__))
+filename = current_path + "/time/%s" % website_domain
+if os.path.exists(filename):
+    mode = 'a' # append if already exists
+else:
+    mode = 'w' # make a new file if not
+fd = open(filename, mode)
+
+with webdriver.Firefox(options=options, firefox_profile=profile) as driver:
+    start = time.time()
+    driver.get("https://"+website_domain)
+    finish = time.time()
+    fd.write("%d\n" % (finish - start))
+fd.close()
