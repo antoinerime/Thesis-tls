@@ -13,7 +13,8 @@ PTLS_PATH = "/home/{}/Thesis-tls/"
 PACK_FMT = "<I"
 SOCKET_TIMEOUT = 120
 
-def handle_input(s, proc, port):
+def handle_input(s, proc, port, connections):
+    key = port
     port = struct.pack(PACK_FMT, port)
     while True:
         try:
@@ -27,6 +28,8 @@ def handle_input(s, proc, port):
         except struct.error as struct_err:
             print 'unpacck error'
             pass # UDP error ?
+
+    connections.pop(key, None)
     s.close()
 
 
@@ -41,11 +44,15 @@ def handle_output(proc, connections):
 
             if port in connections:
                 sock = connections[port]
-                sock.sendto(data, ("8.8.8.8", 53))
-            else:
+                try:
+                    sock.sendto(data, ("8.8.8.8", 53))
+                except socket.error:
+                    connections.pop(port, None)
+
+            if port not in connections:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 sock.settimeout(SOCKET_TIMEOUT)
-                threading.Thread(target=handle_input, args=(sock, proc, port)).start()
+                threading.Thread(target=handle_input, args=(sock, proc, port, connections)).start()
                 try:
                     connections[port] = sock
                     sock.sendto(data, ("8.8.8.8", 53))
