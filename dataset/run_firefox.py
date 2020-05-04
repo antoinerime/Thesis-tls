@@ -26,9 +26,10 @@ else:
     mode = 'w' # make a new file if not
 fd = open(filename, mode)
 
-with webdriver.Firefox(options=options, firefox_profile=profile) as driver:
-    start = time.time()
-    driver.get("https://"+website_domain)
-    finish = time.time()
-    fd.write("%d\n" % (finish - start))
+driver = webdriver.Firefox(options=options, firefox_profile=profile)
+start = time.time()
+driver.get("https://"+website_domain)
+finish = time.time()
+fd.write("%d\n" % (finish - start))
+driver.quit()
 fd.close()
