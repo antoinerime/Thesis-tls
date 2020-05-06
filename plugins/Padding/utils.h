@@ -14,9 +14,9 @@
 
 #define PTLS_MAX_ENCRYPTED_RECORD_SIZE 16640
 #define PTLS_MAX_PLAINTEXT_RECORD_SIZE 16348
-#define MAX_TIMER 60 //Seconds before end of padding
-#define BUFLO_TIMER 1000*1000 //Rate: Send packet every Buflo timer
-#define HTB_RATE 1024 // record_size * 10^6 / buflo timerByte/second
+#define MAX_TIMER 20 //Seconds before end of padding
+#define BUFLO_TIMER 90*1000 //Rate: Send packet every Buflo timer
+#define HTB_RATE 183000// record_size * 10^6 / buflo timerByte/second
 #define PTLS_CONTENT_TYPE_APPDATA 23
 
 typedef struct
