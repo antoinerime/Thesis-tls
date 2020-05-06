@@ -11,7 +11,6 @@ import time
 import sys
 import os
 
-os.seteuid(1000)
 
 website_domain = sys.argv[1]
 FirefoxProfile = "/home/antoine/.mozilla/firefox/cvawzhyn.selenium"
@@ -31,6 +30,7 @@ start = time.time()
 driver.get("https://"+website_domain)
 finish = time.time()
 fd.write("%d\n" % (finish - start))
-driver.quit()
+driver.close()
 fd.close()
-time.sleep(10 - finish + start)
+wait = (10 - finish + start) if (10 - finish + start) > 0 else 0
+time.sleep(wait)
