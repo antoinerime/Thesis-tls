@@ -64,7 +64,7 @@ def main():
     fd = open(current_path + "/collector_log", "w")
     website_list = open(current_path + "/" + top_lists, "r")
     line = website_list.readline()
-    site_range = 1500
+    site_range = 50
     for i in range(site_range):
         line = website_list.readline()
         line = line.split(",")

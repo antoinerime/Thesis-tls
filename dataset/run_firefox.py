@@ -14,7 +14,7 @@ import os
 os.seteuid(1000)
 
 website_domain = sys.argv[1]
-FirefoxProfile = "/home/antoine/.mozilla/firefox/1ixe98kd.Selenium"
+FirefoxProfile = "/home/antoine/.mozilla/firefox/cvawzhyn.selenium"
 options = Options()
 options.headless = True
 profile = webdriver.FirefoxProfile(FirefoxProfile)
@@ -33,3 +33,4 @@ finish = time.time()
 fd.write("%d\n" % (finish - start))
 driver.quit()
 fd.close()
+time.sleep(10 - finish + start)
