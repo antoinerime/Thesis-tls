@@ -13,7 +13,7 @@
 
 
 #define PTLS_MAX_ENCRYPTED_RECORD_SIZE 16640
-#define PTLS_MAX_PLAINTEXT_RECORD_SIZE 16348
+#define PTLS_MAX_PLAINTEXT_RECORD_SIZE 16384
 #define MAX_TIMER 20 //Seconds before end of padding
 #define BUFLO_TIMER 90*1000 //Rate: Send packet every Buflo timer
 #define HTB_RATE 185000// record_size * 10^6 / buflo timerByte/second
