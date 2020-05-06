@@ -73,10 +73,16 @@ def main():
             fd.write("Start collecting padded DOT trace for %s, %d/%d\n" % (website_domain, i, site_range))
             fd.flush()
             collect_data(True, fd, count, website_domain)
+            os.rmdir("/tmp/tmp*")
+            os.rmdir("/tmp/rust*")
+            os.rmdir("/tmp/Temp*")
         else:
             fd.write("Start collecting non-padded DOT trace for %s, %d/%d\n" % (website_domain, i, site_range))
             fd.flush()
             collect_data(False, fd, count, website_domain)
+            os.rmdir("/tmp/tmp*")
+            os.rmdir("/tmp/rust*")
+            os.rmdir("/tmp/Temp*")
     fd.close()
     return
 
