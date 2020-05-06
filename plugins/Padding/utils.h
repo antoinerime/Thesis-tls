@@ -14,9 +14,9 @@
 
 #define PTLS_MAX_ENCRYPTED_RECORD_SIZE 16406
 #define PTLS_MAX_PLAINTEXT_RECORD_SIZE 16384
-#define MAX_TIMER 500*1000
-#define BUFLO_TIMER 90*1000
-#define HTB_RATE PTLS_MAX_PLAINTEXT_RECORD_SIZE * 1000000 / BUFLO_TIMER  // Byte/second
+#define MAX_TIMER 20 //Seconds before end of padding
+#define BUFLO_TIMER 90*1000 //Rate: Send packet every Buflo timer
+#define HTB_RATE 183000 // record_size * 10^6 / buflo timerByte/second
 #define PTLS_CONTENT_TYPE_APPDATA 23
 
 typedef struct
@@ -91,7 +91,7 @@ static __attribute__((always_inline)) void get_timeval(ptls_context_t *ctx, stru
 {
     int allocate = 0;
     struct timeval *ptr = (struct timeval *) get_opaque_data(ctx, 3, sizeof(struct timeval), &allocate);
-    if (allocate)
+    if (!allocate)
         my_memcpy(timeout, ptr, sizeof(struct timeval));
     else
         timeout->tv_usec = BUFLO_TIMER;
