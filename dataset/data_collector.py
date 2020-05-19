@@ -5,6 +5,7 @@ import sys
 import time
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
+import glob
 
 TCPDUMP = "/usr/sbin/tcpdump"
 # TODO
@@ -23,13 +24,16 @@ def collect_data(padding, log_file, count, website_domain):
     for i in range(count):
         log_file.write("Collecting trace %d/%d\n" % (i, count))
         log_file.flush()
-        tcpdump_args = [TCPDUMP, "-i", "enp3s0", "-w", current_path+'/'+pcap_path % (website_domain, i), "host", OVH_IP, "and", "port", "8443"]
+        tcpdump_args = [TCPDUMP, "-i", "ens3", "-w", current_path+'/'+pcap_path % (website_domain, i), "host", OVH_IP, "and", "port", "8443"]
         tcpdump = subprocess.Popen(tcpdump_args, stderr=log_file)
         dns_resolver = subprocess.Popen(dns_res_args, stderr=log_file)
-        selenium = subprocess.Popen([current_path+"/run_firefox.py", website_domain], preexec_fn=demote(1000, 1000), stderr=log_file)
+        selenium = subprocess.Popen([current_path+"/run_firefox.py", website_domain], stderr=log_file)
         selenium.wait()
         tcpdump.terminate()
         dns_resolver.terminate()
+        # Wait for the other to notice the end on the connection
+        # time.sleep(30)
+        os.system("kill $(ps aux | awk '/firefox/ {print $2}')")
 
 def demote(user_uid, user_gid):
     def result():
@@ -41,7 +45,7 @@ def main():
     """
     """
     # Default value if no arg specified
-    count = 20
+    count = 100
     padding = False
     if os.geteuid() != 0:
         exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
@@ -63,9 +67,10 @@ def main():
     current_path = os.path.dirname(os.path.abspath(__file__))
     fd = open(current_path + "/collector_log", "w")
     website_list = open(current_path + "/" + top_lists, "r")
+    # for i in range(76):
     line = website_list.readline()
-    site_range = 50
-    for i in range(site_range):
+    site_range = 100
+    for i in range(0, site_range):
         line = website_list.readline()
         line = line.split(",")
         website_domain = line[2]
@@ -73,16 +78,22 @@ def main():
             fd.write("Start collecting padded DOT trace for %s, %d/%d\n" % (website_domain, i, site_range))
             fd.flush()
             collect_data(True, fd, count, website_domain)
-            os.rmdir("/tmp/tmp*")
-            os.rmdir("/tmp/rust*")
-            os.rmdir("/tmp/Temp*")
         else:
             fd.write("Start collecting non-padded DOT trace for %s, %d/%d\n" % (website_domain, i, site_range))
             fd.flush()
             collect_data(False, fd, count, website_domain)
-            os.rmdir("/tmp/tmp*")
-            os.rmdir("/tmp/rust*")
-            os.rmdir("/tmp/Temp*")
+        tmp_list = glob.glob('/tmp/tmp*/**/*', recursive = True)
+        for file in tmp_list:
+            try:
+                os.remove(file)
+            except:
+                pass
+        tmp_list = glob.glob('/tmp/rust*/**/*', recursive = True)
+        for file in tmp_list:
+            try:
+                os.remove(file)
+            except:
+                pass
     fd.close()
     return
 

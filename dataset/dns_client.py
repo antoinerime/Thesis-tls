@@ -31,7 +31,7 @@ def handle_input(s, connections):
                     args = ["../cli", "-p", "../plugins/Padding/padding.plugin", HOST, PORT]
                 else:
                     args = ["../cli", HOST, PORT]
-                proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stdout.fileno())
+                proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr.fileno())
                 thread_handle_output = threading.Thread(target=handle_output, args=(proc, connections, s))
 
                 thread_handle_output.daemon = True

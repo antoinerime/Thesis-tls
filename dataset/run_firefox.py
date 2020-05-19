@@ -13,7 +13,7 @@ import os
 
 
 website_domain = sys.argv[1]
-FirefoxProfile = "/home/antoine/.mozilla/firefox/cvawzhyn.selenium"
+FirefoxProfile = "/home/student/.mozilla/firefox/cvawzhyn.selenium"
 options = Options()
 options.headless = True
 profile = webdriver.FirefoxProfile(FirefoxProfile)
@@ -27,10 +27,12 @@ fd = open(filename, mode)
 
 driver = webdriver.Firefox(options=options, firefox_profile=profile)
 start = time.time()
-driver.get("https://"+website_domain)
-finish = time.time()
-fd.write("%d\n" % (finish - start))
-driver.close()
-fd.close()
-wait = (10 - finish + start) if (10 - finish + start) > 0 else 0
-time.sleep(wait)
+try:
+    driver.get("https://"+website_domain)
+finally:
+    driver.quit()
+    finish = time.time()
+    fd.write("%d\n" % (finish - start))
+    fd.close()
+# wait = (10 - finish + start) if (10 - finish + start) > 0 else 0
+# time.sleep(10)
