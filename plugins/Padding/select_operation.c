@@ -28,8 +28,10 @@ int select_operation (ptls_t *tls)
         prev_timeout.tv_usec = 0;
         get_timeval(ctx, &prev_timeout);
 
-        uint64_t *args[5] = {maxfd, readfds, writefds, exceptfds, &prev_timeout};
+        uint64_t *args[5] = {NULL, NULL, NULL, NULL, &prev_timeout};
         int ret = help_plugin_select(args);
+        uint64_t *_args[5] = {maxfd, readfds, writefds, exceptfds, NULL};
+        ret = help_plugin_select(_args);
         int timer = 0;
         int allocate = 0;
         int output = 0;
