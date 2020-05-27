@@ -13,7 +13,7 @@ TCP_PKT_CNT = "500"
 OVH_IP = "51.210.10.45"
 
 
-def collect_data(padding, log_file, count, website_domain):
+def collect_data(padding, log_file, count, website_domain, i):
     current_path = os.path.dirname(os.path.abspath(__file__))
     if padding:
         pcap_path = "pcap/padded_%s_%d.pcap"
@@ -21,8 +21,8 @@ def collect_data(padding, log_file, count, website_domain):
     else:
         pcap_path = "pcap/non_padded_%s_%d.pcap"
         dns_res_args = [current_path+"/dns_client.py", OVH_IP, "8443"]
-    i = 0
-    while i < count:
+    success = False
+    while not success:
         log_file.write("Collecting trace %d/%d\n" % (i, count))
         log_file.flush()
         tcpdump_args = [TCPDUMP, "-i", "ens3", "-w", current_path+'/'+pcap_path % (website_domain, i), "host", OVH_IP, "and", "port", "8443"]
@@ -36,7 +36,7 @@ def collect_data(padding, log_file, count, website_domain):
             log_file.write("Error with selenium, regoing sample")
             os.remove(current_path+'/'+pcap_path %(website_domain, i))
         else:
-            i += 1
+            success = True
         # Wait for the other to notice the end on the connection
         time.sleep(30)
         os.system("kill $(ps aux | awk '/firefox/ {print $2}')")
@@ -51,7 +51,7 @@ def main():
     """
     """
     # Default value if no arg specified
-    count = 100
+    count = 40
     padding = False
     if os.geteuid() != 0:
         exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
@@ -74,21 +74,20 @@ def main():
     fd = open(current_path + "/collector_log", "w")
     website_list = open(current_path + "/" + top_lists, "r")
     line = website_list.readline()
-    for i in range(55):
-        line = website_list.readline()
-    site_range = 50
-    for i in range(0, site_range):
-        line = website_list.readline()
-        line = line.split(",")
-        website_domain = line[2]
-        if padding:
-            fd.write("Start collecting padded DOT trace for %s, %d/%d\n" % (website_domain, i, site_range))
-            fd.flush()
-            collect_data(True, fd, count, website_domain)
-        else:
-            fd.write("Start collecting non-padded DOT trace for %s, %d/%d\n" % (website_domain, i, site_range))
-            fd.flush()
-            collect_data(False, fd, count, website_domain)
+    site_range = 200
+    for i in range(0, count):
+        for j in range(0, site_range):
+            line = website_list.readline()
+            line = line.split(",")
+            website_domain = line[2]
+            if padding:
+                fd.write("Start collecting padded DOT trace for %s, %d/%d\n" % (website_domain, j, site_range))
+                fd.flush()
+                collect_data(True, fd, count, website_domain, i)
+            else:
+                fd.write("Start collecting non-padded DOT trace for %s, %d/%d\n" % (website_domain, j, site_range))
+                fd.flush()
+                collect_data(False, fd, count, website_domain, i)
         tmp_list = glob.glob('/tmp/tmp*/**/*', recursive = True)
         for file in tmp_list:
             try:
