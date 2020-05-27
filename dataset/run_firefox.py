@@ -34,5 +34,5 @@ finally:
     finish = time.time()
     fd.write("%d\n" % (finish - start))
     fd.close()
-# wait = (10 - finish + start) if (10 - finish + start) > 0 else 0
-# time.sleep(10)
+wait = (10 - finish + start) if (10 - finish + start) > 0 else 0
+time.sleep(10)

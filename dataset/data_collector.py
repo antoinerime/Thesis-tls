@@ -21,7 +21,8 @@ def collect_data(padding, log_file, count, website_domain):
     else:
         pcap_path = "pcap/non_padded_%s_%d.pcap"
         dns_res_args = [current_path+"/dns_client.py", OVH_IP, "8443"]
-    for i in range(count):
+    i = 0
+    while i < count:
         log_file.write("Collecting trace %d/%d\n" % (i, count))
         log_file.flush()
         tcpdump_args = [TCPDUMP, "-i", "ens3", "-w", current_path+'/'+pcap_path % (website_domain, i), "host", OVH_IP, "and", "port", "8443"]
@@ -31,8 +32,13 @@ def collect_data(padding, log_file, count, website_domain):
         selenium.wait()
         tcpdump.terminate()
         dns_resolver.terminate()
+        if selenium.returncode != 0:
+            log_file.write("Error with selenium, regoing sample")
+            os.remove(current_path+'/'+pcap_path %(website_domain, i))
+        else:
+            i += 1
         # Wait for the other to notice the end on the connection
-        # time.sleep(30)
+        time.sleep(30)
         os.system("kill $(ps aux | awk '/firefox/ {print $2}')")
 
 def demote(user_uid, user_gid):
@@ -67,9 +73,10 @@ def main():
     current_path = os.path.dirname(os.path.abspath(__file__))
     fd = open(current_path + "/collector_log", "w")
     website_list = open(current_path + "/" + top_lists, "r")
-    # for i in range(76):
     line = website_list.readline()
-    site_range = 100
+    for i in range(55):
+        line = website_list.readline()
+    site_range = 50
     for i in range(0, site_range):
         line = website_list.readline()
         line = line.split(",")

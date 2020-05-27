@@ -55,7 +55,9 @@ def handle_output(proc, connections, s):
             header = os.read(proc.stdout.fileno(), 8)
             port = struct.unpack(PACK_FMT, header[:4])[0]
             data_len = struct.unpack(PACK_FMT, header[4:])[0]
-            data = os.read(proc.stdout.fileno(), data_len)
+            while data_len > 0:
+                data = os.read(proc.stdout.fileno(), data_len)
+                data_len -= len(data)
             try:
                 dst = connections[port]
                 s.sendto(data, dst)
