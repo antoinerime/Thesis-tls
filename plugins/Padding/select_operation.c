@@ -16,7 +16,7 @@ int select_operation (ptls_t *tls)
 
     uint64_t off = ptls_get_buff(sendbuf, BUFF_OFF);
     int state = ptls_get(tls, PTLS_STATE);
-    if (state < PTLS_STATE_CLIENT_POST_HANDSHAKE || off) {
+    if (state < PTLS_STATE_CLIENT_POST_HANDSHAKE) {
         uint64_t *args[5] = {maxfd, readfds, writefds, exceptfds, timeout};
         return help_plugin_select(args);
     }
@@ -36,7 +36,7 @@ int select_operation (ptls_t *tls)
         int allocate = 0;
         int output = 0;
         get_timer(ctx, &timer);
-        if (prev_timeout.tv_sec == 0 && prev_timeout.tv_usec == 0 && timer < MAX_TIMER)
+        if (prev_timeout.tv_sec == 0 && prev_timeout.tv_usec == 0 && timer < MAX_TIMER && off == 0)
         {
             int inlen = 0;
             char *input = get_opaque_data(ctx, 10, sizeof(char), &allocate);
