@@ -8,3 +8,9 @@ This directory contains all the scripts used to gather the dataset:
 - data_collector.py: Main script to collect the dataset, it will call run_firefox.py to access a website and stores tcpdump output in a new pcap directory
 
 To reprodude the gathering of the dataset, two virtual machines are needed. You must run dns_server.py on one of them and data_collector.py on the other.
+
+The machine that runs the data_collector must be configured to use the local dns resolver.
+To do so, add the following line at the beginning of resolv.conf
+```
+nameserver 127.0.0.1
+```
