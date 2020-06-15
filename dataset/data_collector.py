@@ -6,6 +6,7 @@ import time
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 import glob
+import random
 
 TCPDUMP = "/usr/sbin/tcpdump"
 # TODO
@@ -13,19 +14,19 @@ TCP_PKT_CNT = "500"
 OVH_IP = "51.210.10.45"
 
 
-def collect_data(padding, log_file, count, website_domain, i):
+def collect_data(padding, log_file, count, website_domain, i, rand):
     current_path = os.path.dirname(os.path.abspath(__file__))
     if padding:
-        pcap_path = "pcap/padded_%s_%d.pcap"
+        pcap_path = "pcap/padded_%s_%d_%s.pcap"
         dns_res_args = [current_path+"/dns_client.py", "--padding", OVH_IP, "8443"]
     else:
-        pcap_path = "pcap/non_padded_%s_%d.pcap"
+        pcap_path = "pcap/non_padded_%s_%d_%s.pcap"
         dns_res_args = [current_path+"/dns_client.py", OVH_IP, "8443"]
     success = False
     while not success:
         log_file.write("Collecting trace %d/%d\n" % (i, count))
         log_file.flush()
-        tcpdump_args = [TCPDUMP, "-i", "ens3", "-w", current_path+'/'+pcap_path % (website_domain, i), "host", OVH_IP, "and", "port", "8443"]
+        tcpdump_args = [TCPDUMP, "-i", "ens3", "-w", current_path+'/'+pcap_path % (website_domain, i, rand), "host", OVH_IP, "and", "port", "8443"]
         tcpdump = subprocess.Popen(tcpdump_args, stderr=log_file)
         dns_resolver = subprocess.Popen(dns_res_args, stderr=log_file)
         selenium = subprocess.Popen([current_path+"/run_firefox.py", website_domain], stderr=log_file)
@@ -33,12 +34,11 @@ def collect_data(padding, log_file, count, website_domain, i):
         tcpdump.terminate()
         dns_resolver.terminate()
         if selenium.returncode != 0:
-            log_file.write("Error with selenium, regoing sample")
-            os.remove(current_path+'/'+pcap_path %(website_domain, i))
+            log_file.write("Error with selenium, redoing sample")
+            os.remove(current_path+'/'+pcap_path %(website_domain, i, rand))
         else:
             success = True
         # Wait for the other to notice the end on the connection
-        time.sleep(30)
         os.system("kill $(ps aux | awk '/firefox/ {print $2}')")
 
 def demote(user_uid, user_gid):
@@ -68,26 +68,31 @@ def main():
     if len(args) != 1:
         exit('Please specify a website lists to get data from')
     top_lists = args[0]
+    rand = str(random.random())
 
     # Log file
     current_path = os.path.dirname(os.path.abspath(__file__))
     fd = open(current_path + "/collector_log", "w")
     website_list = open(current_path + "/" + top_lists, "r")
-    line = website_list.readline()
-    site_range = 200
+    web_list = list()
+    site_range = 201
+    for i in range(site_range):
+        line = website_list.readline()
+        website_domain = line.split('\n')[0]
+        web_list.append(website_domain)
+    website_list.close()    
     for i in range(0, count):
-        for j in range(0, site_range):
-            line = website_list.readline()
-            line = line.split(",")
-            website_domain = line[2]
+        j = 0
+        for website_domain in web_list:
             if padding:
                 fd.write("Start collecting padded DOT trace for %s, %d/%d\n" % (website_domain, j, site_range))
                 fd.flush()
-                collect_data(True, fd, count, website_domain, i)
+                collect_data(True, fd, count, website_domain, i, rand)
             else:
                 fd.write("Start collecting non-padded DOT trace for %s, %d/%d\n" % (website_domain, j, site_range))
                 fd.flush()
-                collect_data(False, fd, count, website_domain, i)
+                collect_data(False, fd, count, website_domain, i, rand)
+            j += 1
         tmp_list = glob.glob('/tmp/tmp*/**/*', recursive = True)
         for file in tmp_list:
             try:
