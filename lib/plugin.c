@@ -212,7 +212,6 @@ int ubpf_read_and_register_plugins(ptls_context_t *ctx, char * plugin_name)
     bool ok = true;
     char *dir_name = dirname(fplugin_name);
 
-    // TODO Check return value
     pluglet_stack_t *top = calloc(1, sizeof(pluglet_stack_t));
     while((read = getline(&line, &len, fp)) != -1 && ok) {
         char *code_file_name = NULL;
@@ -220,7 +219,6 @@ int ubpf_read_and_register_plugins(ptls_context_t *ctx, char * plugin_name)
         proto_op_type type = REPLACE;
         if ((ok = parse_line(line, dir_name, &code_file_name, &pid, &type)) == false)
         {
-            // TODO Free macro or sth
             fprintf(stderr, "Failed to parse line %s:%d", __FILE__, __LINE__);
             return -1;
         }

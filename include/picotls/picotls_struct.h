@@ -539,26 +539,52 @@ typedef struct st_ptls_decompress_certificate_t {
  */
 PTLS_CALLBACK_TYPE(int, update_esni_key, ptls_t *tls, ptls_iovec_t secret, ptls_hash_algorithm_t *hash,
                    const void *hashed_esni_contents);
-/**
- *
- */
 #define OPAQUE_ID_MAX 0x10
 #define PLUGIN_MEMORY (6 * 1024 * 1024)
 typedef enum {REPLACE, PRE, POST} proto_op_type;
+/**
+ * Stores parameters of the protocol operation
+ */
 typedef struct {
+    /**
+     * Id of the protocol operation
+     */
     proto_op_id_t *id;
+    /**
+     * Parameters of the protocol operation, -1 if no parameters
+     */
     param_id_t *param;
     bool caller_is_intern;
+    /**
+     * Number of inputs
+     */
     int inputc;
+    /**
+     * List of input to pass to the function or pluglet
+     */
     proto_op_arg_t *inputv;
+    /**
+     * Output of the function or pluglet
+     */
     proto_op_arg_t *outputv;
 }proto_op_params_t;
-
+/**
+ * Structure storing pointers of allocated data in plugin's heap
+ */
 typedef struct ptls_opaque_meta {
+    /**
+     * Address in the memory heap
+     */
     void *start_ptr;
+    /**
+     * Size of the allocated data
+     */
     size_t size;
 }ptls_opaque_meta_t;
 
+/**
+ * State of the pugin's heap
+ */
 typedef struct memory_pool {
     uint64_t num_of_blocks;
     uint64_t size_of_each_block;
@@ -568,37 +594,84 @@ typedef struct memory_pool {
     uint8_t *next;
 }memory_pool_t;
 
+/**
+ * Plugin object
+ */
 typedef struct plugin{
+    /**
+     * Name of the plugin
+     */
     char *name;
+    /**
+     * hash used by the hashtable lib
+     */
     UT_hash_handle hh;
-
+    /**
+     * Stores the address of data allocated on the plugin's heap
+     */
     ptls_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
+    /**
+     * State of the plugin's heap used by malloc/free
+     */
     memory_pool_t memory_pool;
+    /**
+     * Plugin's heap
+     */
     char memory[PLUGIN_MEMORY];
 }plugin_t;
 
+/**
+ * Pluglet object
+ */
 typedef struct pluglet {
+    /**
+     * Virtual machine of the pluglet
+     */
     struct ubpf_vm *vm;
+    /**
+     * Plugin associated with this pluglet
+     */
     plugin_t *plugin;
 }pluglet_t;
-
+/**
+ * Stores list of pluglets (Used for pre and post)
+ */
 typedef struct observer_node {
     pluglet_t *pluglet;
     struct observer_node *next;
 }observer_node_t;
 
 typedef proto_op_arg_t (*protocol_operation)(ptls_t *);
+/**
+ * Protocol operation object
+ * Contains the informations to execute the protocol operation
+ */
 typedef struct proto_oop_param_struct {
     param_id_t param;
+    /**
+     * Core function to execute
+     */
     protocol_operation core;
+    /**
+     * Replace pluglet to execute
+     */
     pluglet_t *replace;
     bool intern;
     bool running;
+    /**
+     * List of pre pluglet
+     */
     observer_node_t *pre;
+    /**
+     * List of post pluglet
+     */
     observer_node_t *post;
     UT_hash_handle hh;
 } proto_op_param_struct_t;
 
+/**
+ * Identifier for the protocol operation
+ */
 typedef struct proto_op_struct {
     proto_op_id_t *id;
     proto_op_param_struct_t *param;
@@ -607,6 +680,9 @@ typedef struct proto_op_struct {
 
 }proto_op_struct_t;
 
+/**
+ * Unused strcutre, replaced by observer_node
+ */
 typedef struct pluglet_stack {
     pluglet_t *pluglet;
     proto_op_id_t *pid;
@@ -728,24 +804,24 @@ struct st_ptls_context_t {
      */
     ptls_on_extension_t *on_extension;
     /**
-     *
+     * Hashtable of protocol operations
      */
 
     proto_op_struct_t *ops;
     /**
-     *
+     * Input for the protocol operation
      */
     proto_op_arg_t *proto_op_inputv;
      /**
-      *
+      * Output of the protocol operation
       */
     proto_op_arg_t protop_op_output;
     /**
-     *
+     * Plugin that is currently executed
      */
     plugin_t *current_plugin;
     /**
-     *
+     * Hashtable of plugin
      */
     plugin_t *plugin;
 };

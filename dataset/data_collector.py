@@ -74,6 +74,7 @@ def main():
     current_path = os.path.dirname(os.path.abspath(__file__))
     fd = open(current_path + "/collector_log", "w")
     website_list = open(current_path + "/" + top_lists, "r")
+<<<<<<< HEAD
     web_list = list()
     site_range = 201
     for i in range(site_range):

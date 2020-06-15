@@ -238,9 +238,12 @@ int ptls_decode64(uint64_t *value, const uint8_t **src, const uint8_t *end);
  */
 ptls_t *ptls_new(ptls_context_t *ctx, int is_server);
 /**
- * releases all resources associated to the object
+ * releases all resources associated to the ctx object
  */
 void ptls_ctx_free(ptls_context_t *ctx);
+/**
+ * releases all resources associated with the connection
+ */
 void ptls_free(ptls_t *tls);
 /**
  * returns address of the crypto callbacks that the connection is using

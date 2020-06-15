@@ -1,16 +1,9 @@
+This repository contains the extended version of picotls to execute plugins and the code used to gather the dataset.
+
+More info about the dataset can be found in the dataset directory
+
 picotls
 ===
-
-[![Build Status](https://travis-ci.org/h2o/picotls.svg?branch=master)](https://travis-ci.org/h2o/picotls)
-
-Picotls is a [TLS 1.3 (RFC 8446)](https://tools.ietf.org/html/rfc8446) implementation written in C, with the following features:
-* support for two crypto engines
-  * "OpenSSL" backend using libcrypto for crypto and X.509 operations
-  * "minicrypto" backend using [cifra](https://github.com/ctz/cifra) for most crypto and [micro-ecc](https://github.com/kmackay/micro-ecc) for secp256r1
-* support for PSK, PSK-DHE resumption using 0-RTT
-* API for dealing directly with TLS handshake messages (essential for QUIC)
-
-Primary goal of the project is to create a fast, tiny TLS 1.3 implementation that can be used with the HTTP/2 protocol stack and possibly the upcoming QUIC stack of the [H2O HTTP/2 server](https://h2o.examp1e.net).
 
 The TLS protocol ipmlementation of picotls is licensed under the MIT license.
 
@@ -31,6 +24,7 @@ If you have cloned picotls from git then ensure that you have initialised the su
 % git submodule init
 % git submodule update
 ```
+Before using the uBPF virtual machine, you must build it. Go to the uBPF directory for more informations
 
 Build using cmake:
 ```
@@ -38,8 +32,6 @@ Build using cmake:
 % make
 % make check
 ```
-
-A dedicated documentation for using picotls with Visual Studio can be found in [WindowsPort.md](WindowsPort.md).
 
 Developer documentation
 ---
@@ -52,6 +44,10 @@ Using the cli command
 Run the test server (at 127.0.0.1:8443):
 ```
 % ./cli -c /path/to/certificate.pem -k /path/to/private-key.pem  127.0.0.1 8443
+```
+Using a plugin:
+```
+% ./cli -c /path/to/certificate.pem -k /path/to/private-key.pem -p /path/to/manifest.plugin  127.0.0.1 8443
 ```
 
 Connect to the test server:
