@@ -5,9 +5,7 @@
 #ifndef PICOTLS_GETSET_H
 #define PICOTLS_GETSET_H
 
-// #include "picotls.h"
 #include "picotls/picotls_struct.h"
-// TODO What to do with anonymous struct
 typedef enum ptls_field {
     PTLS_CTX,
     PTLS_STATE,
