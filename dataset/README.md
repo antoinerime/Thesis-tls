@@ -1,5 +1,5 @@
 This directory contains all the scripts used to gather the dataset:
-- 5000_top_list.csv: Contains a list of popular websites
+- short_list_1500: Contains a list of popular websites
 - client.py: & dns_clients.py: Are the entry proxies to tunnel HTTP and DNS traffic through our implementation of TLS
 - server.py: & dns_server.py: Are the exit proxies that received the tunneled traffic. 
     server.py sends the traffic to a real http proxy on localhost
