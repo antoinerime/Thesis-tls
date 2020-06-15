@@ -107,7 +107,7 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
     ptls_buffer_t rbuf, encbuf, ptbuf;
     char bytebuf[16384];
     enum { IN_HANDSHAKE, IN_1RTT, IN_SHUTDOWN } state = IN_HANDSHAKE;
-    int inputfd = 0, ret = 0;
+    int inputfd = 0, ret = 0, fail = 0;
     size_t early_bytes_sent = 0;
     ssize_t ioret;
 
@@ -258,13 +258,18 @@ static proto_op_arg_t handle_connection(ptls_t *tls)
         /* send any data */
         if (encbuf.off != 0) {
             // Had to pu MSG_NOSIGNAL because some random broken pipe happened
-            while ((ioret = send(sockfd, encbuf.base, encbuf.off, MSG_DONTWAIT | MSG_NOSIGNAL)) == -1 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
+            while ((ioret = send(sockfd, encbuf.base, encbuf.off, MSG_DONTWAIT)) == -1 && (errno == EINTR))
                 ;
             if (ioret == -1 && (errno == EWOULDBLOCK || errno == EAGAIN)) {
+                fail ++;
+                // Quickfix to avoid deadlock
+                if (fail > 200000)
+                    goto Exit;
                 /* no data */
             } else if (ioret <= 0) {
                 goto Exit;
             } else {
+                fail = 0;
                 shift_buffer(&encbuf, ioret);
             }
         }
